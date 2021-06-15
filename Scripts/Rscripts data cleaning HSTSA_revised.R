@@ -40,26 +40,34 @@ dataHST2 <- HSTSA2 %>%
 glimpse(dataHST1)
 glimpse(dataHST2)
 #=======================================================================
+# Stacking the data
+#=======================================================================
+dataHST <- rbind(dataHST1, dataHST2)
+dim(dataHST)[1] == dim(dataHST1)[1] + dim(dataHST2)[1] # Expect TRUE
+#=======================================================================
 # Organizing date variables
 #=======================================================================
-dataHST1$CALVING_DTM <- as.Date(dataHST1$CALVING_DTM,
+dataHST$CALVING_DTM <- as.Date(dataHST$CALVING_DTM,
                                 format = "%d/%m/%Y")
-dataHST1$LACTATION_DTM <- as.Date(dataHST1$LACTATION_DTM,
+dataHST$LACTATION_DTM <- as.Date(dataHST$LACTATION_DTM,
                                   format = "%d/%m/%Y")
-dataHST1$END_LACTATION_DTM <- as.Date(dataHST1$END_LACTATION_DTM,
+dataHST$END_LACTATION_DTM <- as.Date(dataHST$END_LACTATION_DTM,
                                       format = "%d/%m/%Y")
 #=======================================================================
 # Factor PARTICIPANT -> Unknown level to NA
 #=======================================================================
-dataHST1$PARTICIPANT[dataHST1$PARTICIPANT == "Unknown"] <- NA
-
+dataHST$PARTICIPANT[dataHST$PARTICIPANT == "Unknown"] <- NA
 #=======================================================================
 # Two columns to identify commercial and under study animals
 #=======================================================================
-dataHST1$Type <- str_extract_all(as.character(dataHST1$PARTICIPANT),
+dataHST$Type <- str_extract_all(as.character(dataHST$PARTICIPANT),
                                  "[:upper:]", simplify = TRUE)
-dataHST1$Class <- paste0(dataHST1$Type[, 1], dataHST1$Type[, 2],
-                         dataHST1$Type[, 3])
-dataHST1$Class <- as.factor(dataHST1$Class)
-dataHST1 <- subset(dataHST1,  select = -c(Type))
+dataHST$Class <- paste0(dataHST$Type[, 1], dataHST$Type[, 2],
+                         dataHST$Type[, 3])
+dataHST$Class <- as.factor(dataHST$Class)
+dataHST <- subset(dataHST,  select = -c(Type))
+#=======================================================================
+# Summary
+#=======================================================================
+summary(dataHST)
 #=======================================================================
