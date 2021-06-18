@@ -39,16 +39,16 @@ HSTSA_new1 <- as.data.frame(apply(HSTSA,              # Remove blanks
 summary(HSTSA_new1)
 
 #Set Blank cells & cells with Space & "Unknown" to NA in Data (HSTSA)
-HSTSA_new2 <- HSTSA_new1                                    
-HSTSA_new2[HSTSA_new2 == ""|HSTSA_new2 == " "|HSTSA_new2 == "0"|HSTSA_new2 == "0.00"|HSTSA_new2== "Unknown"] <- NA 
-summary(HSTSA_new2)        
+HSTSA_new2 <- HSTSA_new1
+HSTSA_new2[HSTSA_new2 == ""|HSTSA_new2 == " "|HSTSA_new2 == "0"|HSTSA_new2 == "0.00"|HSTSA_new2== "Unknown"] <- NA
+summary(HSTSA_new2)
 #Summary HSTSA_new2 (Raw data Holstein South Africa)
 library(dplyr)
 library(ggplot2)
 HSTSA_new2$PARTICIPANT<- as.factor(HSTSA_new2$PARTICIPANT)
 HSTSA_new2$PARITY<- as.factor(HSTSA_new2$PARITY)
 HSTSA_new2$MILK_YLD <- as.numeric(HSTSA_new2$MILK_YLD)
-HSTSA_new2$FAT_YLD  <- as.numeric(HSTSA_new2$FAT_YLD) 
+HSTSA_new2$FAT_YLD  <- as.numeric(HSTSA_new2$FAT_YLD)
 HSTSA_new2$PROTEIN_YLD <- as.numeric(HSTSA_new2$PROTEIN_YLD)
 HSTSA_new2$MILK_YLD_305D<- as.numeric(HSTSA_new2$MILK_YLD_305D)
 HSTSA_new2$FAT_YLD_305D <- as.numeric(HSTSA_new2$FAT_YLD_305D)
@@ -92,12 +92,12 @@ nherds# 5855
 sum(is.na(HSTSA_new2))### NA=1100110
 #Percentage of missing data
 colMeans(is.na(HSTSA_new2))*100
-#Total number of missing values of MILK_YLD_305D 
+#Total number of missing values of MILK_YLD_305D
 sum(is.na(HSTSA_new2$MILK_YLD_305D))###128925
 # Number of observed parities
 table(HSTSA_new2$PARITY)
 
-#MILK_YLD_305D, FAT_YLD_305D and PROTEIN_YLD_305D across all lactation 
+#MILK_YLD_305D, FAT_YLD_305D and PROTEIN_YLD_305D across all lactation
 
 mean(HSTSA_new2$MILK_YLD_305D,na.rm = TRUE)### 7227.577+2241.825
 sd(HSTSA_new2$MILK_YLD_305D,na.rm = TRUE)
@@ -110,7 +110,7 @@ sd(HSTSA_new2$PROTEIN_YLD_305D,na.rm = TRUE)
 ## Lactation length
 mean(HSTSA_new2$LACT_LNGTH,na.rm = TRUE) ###229.2397+100.8147
 sd(HSTSA_new2$LACT_LNGTH,na.rm = TRUE)
- 
+
  # 305D Milk yield by Parity ##### @Thiago, please check the following two codes for plots
  library(tidyr)
  newdata <- HSTSA_new2 %>%
@@ -120,7 +120,7 @@ sd(HSTSA_new2$LACT_LNGTH,na.rm = TRUE)
      xlab("PARITY") +
       theme_bw()
  table(HSTSA_new2$PARITY)
- 
+
  # Number of observation by Parity
  library(tidyr)
  newdata%>%
@@ -129,7 +129,7 @@ sd(HSTSA_new2$LACT_LNGTH,na.rm = TRUE)
      ylab("Number of observation") +
    xlab("PARITY") +
    theme_bw()
- 
+
  # Milk yield by Parity, Boxplot to show the distribution
  library(tidyr)
  HSTSA_new2 %>%
@@ -140,7 +140,7 @@ sd(HSTSA_new2$LACT_LNGTH,na.rm = TRUE)
    xlab("PARITY") +
    theme_bw()
  table(HSTSA_new2$PARITY)
- 
+
 ##########################################################################################################
 ##Data editing ##
 ###########################################################################################################
@@ -154,7 +154,5 @@ sd(HSTSA_new2$LACT_LNGTH,na.rm = TRUE)
  ## Relocate TYPE near participant (herd)
  HSTSA_new4<- subset(HSTSA_new3, select = c(1,2,3,4,16,5,6,7,8,9,10,11,12,13,14,15))
  head(HSTSA_new4)
- 
- ##### Extract the strings from numeric in the HSTSA_new4$TYPE 
- 
- 
+
+ ##### Extract the strings from numeric in the HSTSA_new4$TYPE
