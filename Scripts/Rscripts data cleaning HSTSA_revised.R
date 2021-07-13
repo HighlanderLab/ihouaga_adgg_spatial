@@ -134,6 +134,34 @@ ggsave("herd_mean_sd.png")
 # There three observation in the HST to be inbestigated
 # observations above a Mean of 15000
 #-----------------------------------------------------------------------
+# Filtering herds with variance zero
+#-----------------------------------------------------------------------
+sd0 <- dataHST %>%
+  filter(Class != "NA") %>%
+  group_by(Herd, Class) %>%
+  summarise(
+    MeanMilk = mean(MILK_YLD, na.rm = TRUE),
+    MedianMilk = median(MILK_YLD, na.rm = TRUE),
+    VarMilk = var(MILK_YLD, na.rm = TRUE),
+    SdMilk =  sqrt(VarMilk),
+    nMilk = n()
+  ) %>%
+  filter(VarMilk <= 50) %>%
+  droplevels()
+
+sd0 %>%
+  ggplot(aes(y = MeanMilk,  x = nMilk,  group = VarMilk)) +
+  geom_point(aes(colour = VarMilk)) +
+  xlab("Number of Observations") +
+  ylab("Milk Average") +
+  theme_bw()
+
+# All herds with variance zero has 2 identical observations
+
+# We have to discover the reason on why they have two identical
+# observations!!
+
+#-----------------------------------------------------------------------
 # Mean and Variance - groupd by Class and PARITY
 SMilk <- dataHST %>%
   group_by(PARITY, Class) %>%
