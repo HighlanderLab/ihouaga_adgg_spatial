@@ -1,0 +1,158 @@
+Jersey_P1<-subset(Jersey,Jersey$PARITY=="1")
+Jersey_P1$MILK_YLD_305D[Jersey_P1$MILK_YLD_305D > 8347 & ! is.na(Jersey_P1$MILK_YLD_305D)] <- NA
+Jersey_P1$MILK_YLD_305D[Jersey_P1$MILK_YLD_305D < 2544 & ! is.na(Jersey_P1$MILK_YLD_305D)] <- NA
+Jersey_PARITY2<-na.omit(Jersey_P2)
+
+Jersey_P4<-subset(Jersey_lact,Jersey_lact$PARITY=="4")
+Jersey_P4$MILK_YLD_305D[Jersey_P4$MILK_YLD_305D > 10109 & ! is.na(Jersey_P4$MILK_YLD_305D)] <- NA
+Jersey_P4$MILK_YLD_305D[Jersey_P4$MILK_YLD_305D < 1571 & ! is.na(Jersey_P4$MILK_YLD_305D)] <- NA
+Jersey_PARITY4<-na.omit(Jersey_P4)
+head(Jersey_PARITY4)
+
+Jersey_P5$MILK_YLD_305D[Jersey_P5$MILK_YLD_305D > 10023 & ! is.na(Jersey_P5$MILK_YLD_305D)] <- NA
+Jersey_P5$MILK_YLD_305D[Jersey_P5$MILK_YLD_305D < 1591 & ! is.na(Jersey_P5$MILK_YLD_305D)] <- NA
+Jersey_PARITY5<-na.omit(Jersey_P5)
+Jersey_P5<-subset(Jersey,Jersey$PARITY=="5")
+
+
+
+Jersey_Participant<-data4[duplicated(data4[,c("ANIMAL_NUMBER", "PARTICIPANT")])==FALSE,]
+> nrow(Jersey_Participant)
+[1] 16014
+> anim_per_Participant<-as.data.frame(table(Jersey_Participant$PARTICIPANT))
+> head(anim_per_Participant)
+
+
+number of herds with more than 50 jersey cows
+nrow(anim_per_Participant[which(anim_per_Participant$Freq>50),])
+
+number of herds with more than/equal to 50 jersey cows
+nrow(anim_per_Participant[which(anim_per_Participant$Freq>=50),])
+
+number of herds with more than/equal to 50 jersey cows
+nrow(anim_per_Participant[which(anim_per_Participant$Freq>=50),])
+
+
+
+plot(JERSEY_LACT1$LACT_LNGTH, JERSEY_LACT1$MILK_YLD_305D, type="l")
+             
+plot (data2$Sire_recode, data2$Address,  type="l")
+JERSEY_LACT1$CALVING_DTM<-as.Date(JERSEY_LACT1$CALVING_DTM,format="%d/%m/%y")
+ JERSEY_LACT1$LACTATION_DTM<-as.Date(JERSEY_LACT1$LACTATION_DTM,format="%d/%m/%y")
+
+LACTATION_DTM<-as.Date(JERSEY_LACT1$LACTATION_DTM,format="%d/%B/%Y")
+> CALVING_DTM<-as.Date(JERSEY_LACT1$CALVING_DTM,format="%d/%B/%Y")
+
+
+
+
+
+meansDIM<-aggregate(MILK_YLD~LACT_LNGTH, data=bin, FUN=mean)
+
+plot(meansDIM$LACT_LNGTH, meansDIM$MILK_YLD_305D, type="l")
+
+#########################
+Formatting dates from letters to figures (9-mar-2003 to 9/3/2003
+
+LACTATION_DTM<-as.Date(Jersey1$LACTATION_DTM,"%d-%m-%y")
+JERSEY_LACT5["LACT_DATE"] <- NA
+jersey1$LACT_DATE<-as.Date(jersey1$LACTATION_DTM,"%d-%b-%y")
+jersey1$LACT_DATE<-format(jersey1$LACT_DATE,"%d/%m/%Y")
+head(JERSEY_LACT5)
+
+CALVING_DTM<-as.Date(JERSEY_LACT5$CALVING_DTM,"%d-%m-%y")
+JERSEY_LACT5["CALVING_DATE"] <- NA
+JERSEY_LACT5$CALVING_DATE<-as.Date(JERSEY_LACT5$CALVING_DTM,"%d-%b-%y")
+JERSEY_LACT5$CALVING_DATE<-format(JERSEY_LACT5$CALVING_DATE,"%d/%m/%Y")
+head(JERSEY_LACT5)
+order dates
+
+jersey1<-jersey1[order(as.Date(jersey1$LACT_DATE, format="%d/%m/%Y")),] #ordering dates with cows
+jersey1<-jersey1[order(as.Date(jersey1$CALVING_DATE, format="%d/%m/%Y")),]
+
+FOR DATE DIFFERENCES THEN SUBSTRACTION FOR AFC
+jersey3$LACT_DATE<-as.Date(jersey3$LACT_DATE, "%d/%m/%Y")
+jersey3$test<-as.Date(jersey3$test, "%d/%m/%Y")
+jersey3$L_AGE<-as.numeric(jersey3$LACT_DATE - jersey3$test) # using DOB and lactation date
+jersey3$C_AGE<-as.numeric(jersey3$CALVING_DATE - jersey3$test) # using DOB and calving date
+> head(jersey3$C_AGE)
+[1] 799 773 904 843 716 947
+
+ ######################     herds with more than/equals to 50animals 
+
+herd50$PARTICIPANT <- factor(as.character(herd50$PARTICIPANT))
+
+ncows <- tapply(herd50$ANIMAL_NUMBER, herd50$PARTICIPANT, function(x){length(unique(x))})
+
+herdkeep <- names(ncows)[ncows >= 50]
+
+recordkeep <- ! is.na(match(JERSEY_50$PARTICIPANT, herdkeep))
+
+sum(recordkeep)
+sum(! recordkeep)
+
+JERSEY_50 <- JERSEY_50[recordkeep,]
+
+dim(JERSEY_50)
+autumn<- c(4,5)
+winter <- c(6,7,8)
+summer<- c(11,12,1,2,3)
+spring<- c(9,10)
+dates$LACT_MTH <- (! is.na(match(dates$LACT_MTH, autumn)))
+dates$LACT_MTH <- (! is.na(match(dates$LACT_MTH, winter)))
+dates$LACT_MTH <- (! is.na(match(dates$LACT_MTH, summer)))
+dates$LACT_MTH <- (! is.na(match(dates$LACT_MTH, spring)))
+
+write.csv(JERSEY_50,"JERSEY_50.csv")
+
+## ##################################
+
+JERSEY_50$HYS <- factor(paste(JERSEY_50$PARTICIPANT, JERSEY_50$LACT_YR, JERSEY_50$LACT_MTH))
+ 
+ncow.combi <- tapply(JERSEY_50$ANIMAL_NUMBER, JERSEY_50$HYS, function(x){length(unique(x))})
+
+ncow.dat <- data.frame(HYS = names(ncow.combi), Ncow = as.numeric(ncow.combi))
+
+write.csv(ncow.dat, file="D:\\Users\\OAbejide\\305D\\ncow.combi.csv")
+
+combikeep <- names(ncow.combi)[ncow.combi > 3]
+
+recordkeep.combi <- ! is.na(match(JERSEY_50$HYS, combikeep))
+
+sum(recordkeep.combi)
+sum(! recordkeep.combi)
+
+JERSEY_50<- JERSEY_50[recordkeep.combi,]
+
+
+
+## ##################################
+
+newest <- data.frame(ANIMLA_NUMBER= tapply(JERSEY_50$ANIMAL_NUMBER, JERSEY_50$ANIMAL_NUMBER, function(x){x[1]}))
+
+newest$PARTICIPANT <- tapply(JERSEY_50$ANIMAL_NUMBER, total4$CowID, function(x){x[1]})
+
+newest$CALVING_YR <- tapply(total4$Season, total4$CowID, function(x){x[1]})
+
+newest$LSDyear <- tapply(total4$LSDyear, total4$CowID, function(x){x[1]})
+
+newest$Combi <- tapply(total4$Combi, total4$CowID, function(x){x[1]})
+
+newest <- newest[order(newest$Combi),]
+
+newest <- newest[,c(2,3,4,1)]
+
+row.names(newest) <- NULL
+
+newest <- newest[,c(4,1:3)]
+
+write.csv(newest, file="D:\\Users\\OAbejide\\305D\\cow-id-combination.csv")
+
+##########################
+sire ids not found in the WWs4_sirelist3 from website
+missing<-unique(sire2$SIRE_ID[which(!(sire2$SIRE_ID %in% sire$SIRE_ID))])
+> length(missing)
+[1] 9700
+> head(missing)
+[1]       0 2564086 2576973 2594695 2613859 2616449
+> sire_match<-merge(sire1,sire2,by="SIRE_ID", all.y=TRUE) where x=sire1 and y=sire2 ##this also include sire2 list which is Jersey pedigree##
