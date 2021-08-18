@@ -1,0 +1,426 @@
+removind default row nmaes in R#######
+write.table(newdata,"newdata.txt",row.names=F,col.names=F)
+#####
+
+
+
+Data$ANIMAL_NUMBER, Data$TESTDAY_DTM, Data$CALVING_DTM
+
+format.cow.dates <- function(Data){
+
+ Data$CALVING_DTM <- as.Date(as.character(Data$CALVING_DTM), "%d/%m/%Y")
+
+ Data$TESTDAY_DTM <- as.Date(as.character(Data$TESTDAY_DTM), "%d/%m/%Y")
+
+ Data <- Lact1[order(Lact1$ANIMAL_NUMBER, Lact1$TD),]
+
+ Data
+}
+ ## print.noquote(paste(i, date()))
+
+###  format  dates of birth
+BIRTH_DTM<-as.Date(DOB$BIRTH.DATE,"%d-%m-%y")
+DOB["BIRTH_DTM"] <- NA
+DOB$BIRTH.DTM<-as.Date(DOB$BIRTH.DATE,"%d-%b-%y")
+DOB$BIRTH.DATE<-format(DOB$BIRTH.DTM,"%d/%m/%Y")
+head(DOB)
+
+## ####################################
+
+get.lmy <- function(Lact1, refd){
+
+ cows <- unique(Lact1$ANIMAL_NUMBER)
+
+ ncows <- length(cows)
+
+ ## ## ##
+
+ Lact1$lmy <- NA
+ Lact1$ivals <- NA
+ for(i in 1:ncows){
+
+  
+
+   test <- (Lact1$ANIMAL_NUMBER == cows[i])
+
+   tmp <-  Lact1[test,]
+   
+   alldates <- c(tmp$CALVING_DATE[1], tmp$TD)
+
+   ivals <- as.numeric(as.character(diff(alldates)))
+   n <- length(ivals)
+
+   ivals <- c(ivals, refd - sum(ivals))
+
+   mvals <- c(tmp$MILK_YIELD[1], (tmp$MILK_YIELD[-n] + tmp$MILK_YIELD[-1])/2, tmp$MILK_YIELD[n])
+
+   Lact1$lmy[test] <- sum(ivals * mvals)
+ }
+ 
+ Lact1
+}
+
+## ####################################
+
+Data <- format.cow.dates(Data)
+Lact1<- get.lmy(Data,refd=305)
+###########
+ivals <- as.numeric(as.character(diff(c(tmp$LactStartDate[1], tmp$TesDayDate))))
+ivals <- c(ivals, sum(ivals) - refd)
+ivals <- c(ivals, refd - sum(ivals))
+#############################
+get.Protein_305 <- function(Data, refd){
+
+ cows <- unique(Data$ANIMAL_NUMBER)
+
+ ncows <- length(cows)
+
+ ## ## ##
+
+ Data$Protein_305 <- NA
+
+ for(i in 1:ncows){
+
+  
+
+   test <- (Data$ANIMAL_NUMBER == cows[i])
+
+   tmp <-  Data[test,]
+   
+   alldates <- c(tmp$CALVING_DTM[1], tmp$TESTDAY_DTM)
+
+   ivals <- as.numeric(as.character(diff(alldates)))
+
+   n <- length(ivals)
+
+   ivals <- c(ivals, refd - sum(ivals))
+
+   mvals <- c(tmp$PROTEIN_CONC[1], (tmp$PROTEIN_CONC[-n] + tmp$PROTEIN_CONC[-1])/2, tmp$PROTEIN_CONC[n])
+
+   Data$Protein_305[test] <- sum(ivals * mvals)
+ }
+ 
+ Data
+}
+Data<- get.Protein_305(Data,refd=305)
+####################################################
+get.Fat_305 <- function(Data, refd){
+
+ cows <- unique(Data$ANIMAL_NUMBER)
+
+ ncows <- length(cows)
+
+ ## ## ##
+
+ Data$Fat_305 <- NA
+
+ for(i in 1:ncows){
+
+  
+   test <- (Data$ANIMAL_NUMBER == cows[i])
+
+   tmp <-  Data[test,]
+   
+   alldates <- c(tmp$CALVING_DTM[1], tmp$TESTDAY_DTM)
+
+   ivals <- as.numeric(as.character(diff(alldates)))
+
+   n <- length(ivals)
+
+   ivals <- c(ivals, refd - sum(ivals))
+
+   mvals <- c(tmp$FAT_CONC[1], (tmp$FAT_CONC[-n] + tmp$FAT_CONC[-1])/2, tmp$FAT_CONC[n])
+
+   Data$Fat_305[test] <- sum(ivals * mvals)
+ }
+ 
+ Data
+}
+Data<- get.Fat_305(Data,refd=305)
+########################################
+BIRTH_DTM<-as.Date(DOB$BIRTH.DATE,"%d-%m-%y")
+DOB["BIRTH_DTM"] <- NA
+DOB$BIRTH.DTM<-as.Date(DOB$BIRTH.DATE,"%d-%b-%y")
+DOB$BIRTH.DATE<-format(DOB$BIRTH.DTM,"%d/%m/%Y")
+head(DOB)
+Lact<-Lactation[duplicated(Lactation[,c("ANIMAL_NUMBER", "HERD_ID")])==FALSE,]
+nrow(Lactation)
+anim_per_ZimHerd<-as.data.frame(table(Lactation$HERD_ID))
+head(anim_per_ZimHerd)
+rec_per_HYS<-as.data.frame(table(Lactation$HERD_ID))
+head(rec_per_HYS)
+length(unique(anim_per_HYS$Var1))
+length(unique(anim_per_HYS$Freq))
+
+###################
+length(unique(anim_per_ZimHerd$Freq))
+[1] 66
+> length(unique(Lactation$HERD_ID))
+[1] 69
+#######################
+data4$PARTICIPANT <- factor(as.character(total4$Herd_ID))
+
+ncows <- tapply(total4$CowID, total4$Herd_ID, function(x){length(unique(x))})
+
+herdkeep <- names(ncows)[ncows > 50]
+
+recordkeep <- ! is.na(match(total4$Herd_ID, herdkeep))
+
+sum(recordkeep)
+sum(! recordkeep)
+
+total4 <- total4[recordkeep,]
+
+dim(total4)
+#####################################
+dat$AGE[dat$AGE > 2481 & ! is.na(dat$AGE)] <- NA
+dat$AGE[dat$AGE < 540 & ! is.na(dat$AGE)] <- NA
+ZIM_LACT01<-na.omit(dat)
+write.csv(Lactation01, file="Lact01.csv",row.names=TRUE)
+
+dat2$AGE[dat2$AGE > 2724 & ! is.na(dat2$AGE)] <- NA
+dat2$AGE[dat2$AGE < 810 & ! is.na(dat2$AGE)] <- NA
+ZIM_LACT02<-na.omit(dat2)
+write.csv(ZIM_LACT02, file="ZIM_LACT02.csv",row.names=TRUE)
+
+dat3$AGE[dat3$AGE > 2901 & ! is.na(dat3$AGE)] <- NA
+dat3$AGE[dat3$AGE < 1080 & ! is.na(dat3$AGE)] <- NA
+ZIM_LACT03<-na.omit(dat3)
+write.csv(Lactation03, file="Lact03.csv",row.names=TRUE)
+
+dat5$AGE[dat5$AGE > 4105 & ! is.na(dat5$AGE)] <- NA
+dat5$AGE[dat5$AGE < 1620 & ! is.na(dat5$AGE)] <- NA
+ZIM_LACT05<-na.omit(dat5)
+
+dat4$AGE[dat4$AGE > 3744 & ! is.na(dat4$AGE)] <- NA
+dat4$AGE[dat4$AGE < 1380 & ! is.na(dat4$AGE)] <- NA
+ZIM_LACT04<-na.omit(dat4)
+write.csv(Lactation04, file="Lact04.csv",row.names=TRUE)
+
+Lactation5$newage[Lactation5$newage > 4105 & ! is.na(Lactation5$newage)] <- NA
+Lactation5$newage[Lactation5$newage < 1620 & ! is.na(Lactation5$newage)] <- NA
+Lactation05<-na.omit(Lactation5)
+write.csv(Lactation05, file="Lact05.csv",row.names=TRUE)
+
+###############################
+
+
+c[c== 0] <- NA
+d[d == 0] <- NA
+jnew <- as.character(c[! is.na(c)])
+knew <- as.character(d[! is.na(d)])
+any(! is.na(match(jnew, knew)))
+
+hol_sire$Sire[hol_sire$Sire == 0] <- NA
+hstnew <- as.character(hol_sire$Sire[! is.na(hol_sire$Sire)])
+any(! is.na(match(hstnew, knew))) 
+############
+sa[sa== 0] <- NA
+zim[zim == 0] <- NA
+khf[khf==0]<-NA
+znew <- as.character(zim[! is.na(zim)])
+knew <- as.character(khf[! is.na(khf)])
+snew <- as.character(zim[! is.na(sa)])
+any(! is.na(match(znew, knew, snew])))
+
+hol_sire$Sire[hol_sire$Sire == 0] <- NA
+hstnew <- as.character(hol_sire$Sire[! is.na(hol_sire$Sire)])
+any(! is.na(match(hstnew, knew))) 
+
+###################
+head(anim_per_ZimHerd,"anim_per_ZimHerd.csv")
+   Var1  Freq
+1    14 18651
+2    17   264
+5    67   175
+6    76  1033
+7    77  7586
+8    84   281
+9    95    64
+10  103   174
+11  125  2661
+12  135   313
+13  161    62
+14  173   664
+15  179   897
+16  190   126
+18  209  4210
+19  210  5687
+20  240  3588
+21  258  3375
+22  287 23183
+23  288  2184
+25  335   612
+26  349   128
+27  353  5313
+28  355   537
+29  383  6441
+30  392 15475
+31  393 10060
+32  428  4483
+34  446   333
+37  469  3709
+38  470   228
+39  487  1622
+40  508   350
+41  522    70
+42  545  3259
+44  550   889
+45  553  5507
+46  555  4725
+47  557  4848
+48  558   732
+49  559    94
+51  586   260
+52  587   534
+54  599    88
+55  600   345
+57  603   708
+58  604  4851
+60  626  1085
+61  627  2114
+62  629    88
+63  630   440
+66  641   703
+69 1785   283
+####################################
+zim_hys$CALVING_AGE[zim_hys$CALVING_AGE > 2308 & ! is.na(zim_hys$CALVING_AGE)] <- NA
+zim_hys$CALVING_AGE[zim_hys$CALVING_AGE < -106 & ! is.na(zim_hys$CALVING_AGE)] <- NA
+summary(zim_hys$CALVING_AGE)
+MEAN AND 3SD FOR OUTLIERS IN MILK YIELD WHERE MIN=6.8 AND MAX=23370
+milk305$Milk_305[milk305$Milk_305 > 13591 & ! is.na(milk305$Milk_305)] <- NA
+milk305$Milk_305[milk305$Milk_305 < -3728.968 & ! is.na(milk305$Milk_305)] <- NA
+summary(milk305$Milk_305)
+##################
+extract hols animals without NAs in the sire column; extract/subset males
+jer_subset= has NAs removed and males subset
+con<-which(jer_subset$Sire %in% kenya$Sire) ## vector of positions in jersey file that can be found in kenya file when matching kenya sire and jersey sire
+jersey_common<-as.data.frame(matrix(NA,nrow=0,ncol=26))
+kenya_common<-as.data.frame(matrix(NA,nrow=0,ncol=23))
+for (i in 1:length(con)){
+  jersey_common<-rbind(jersey_common,jer_subset[con[i],])
+  kenya_common<-rbind(kenya_common,subset(kenya,kenya$Sire==jer_subset$Sire[con[i]]))
+}
+
+
+##################
+*****Actually 4 sires match jersey (from the 2639 sires) and kenya sire (5642) files******
+ anim_j3<-unique(j3$sire_id)
+anim_kenya<-unique(kenya$sire_id)
+anim_j3_overlap<-anim_j3[which(anim_j3 %in% anim_kenya)]
+length(anim_j3_overlap)
+[1] 4
+> anim_j3_overlap
+[1] 34141267 36737120 39000872 40793358
+2639 Levels: 10009797 10036424 10139426 10155778 10156008 10156255 10156313 10157444 10229383 10229862 10314383 10428423 10428936 10429173 10429744 10531614 10620805 10621043 10621878 ... 71590160
+###############################
+p<- tapply(dope$CALVING.DATE, dope$ANIMAL_NUMBER, findunique) # order cows by calving dates
+summary(factor(p))
+Q<-sum(! is.na(match(dope$ANIMAL_NUMBER names(y[y == 1]))))
+sum(! is.na(match(Lact1$Cow, names(y[y == 1]))))
+Lact1 <- dope[! is.na(match(dope$ANIMAL_NUMBER, names(y[y == 1]))),] # match dataD with all groups of y=1 (lactation 1) with data frame
+ head(Lact1)
+
+Lact2 <- D[! is.na(match(D$ANIMAL_NUMBER, names(y[y == 2]))),]
+
+##########
+anim_s3<-unique(sa$HERD_BOOK)
+anim_z3<-unique(zim$HERD_BOOK)
+anim_k3<-unique(khf$HERD_BOOK)
+K3S3_overlap<-anim_s3[which(anim_s3 %in% anim_k3)]
+Z3S3_overlap<-anim_s3[which(anim_s3 %in% anim_z3)]
+length(anim_j3_overlap)
+############################
+zim260 has animals with more than 1 calving date. the below was done to check for single and multiple calving dates
+**findunique <- function(x){length(unique(x))}
+p<- tapply(dat$CALVING_DATE, dat$ANIMAL_NUMBER, findunique) # order cows by calving dates
+summary(factor(p))
+Lact1 <- dat[! is.na(match(dat$ANIMAL_NUMBER, names(p[p == 1]))),] # match dataD with all groups of y=1 (lactation 1) with data frame
+head(Lact1)
+Lact2 <- dat[! is.na(match(dat$ANIMAL_NUMBER, names(p[p== 2]))),]
+> head(Lact2)
+Lact2<-Lact2[order(Lact2$ANIMAL_NUMBER,Lact2$CALVING_DATE,Lact2$TD),] # ORDERING CD, TD BY ANIMAL NUMBER
+Q<-sum(! is.na(match(dope$ANIMAL_NUMBER, names(y[y == 1]))))
+sum(! is.na(match(Lact1$Cow, names(y[y == 1]))))
+#####################
+y<- tapply(dope$CALVING.DATE, dope$ANIMAL_NUMBER, findunique) # order cows by calving dates
+summary(factor(y))
+Lact1 <- dat[! is.na(match(dat$ANIMAL_NUMBER, names(y[y == 1]))),] # match dataD with all groups of y=1 (lactation 1) with data frame
+head(Lact1)
+Lact2 <- dat[! is.na(match(dat$ANIMAL_NUMBER, names(y[y == 2]))),]
+
+###############################
+get.lmy <- function(Lact1, refd){
+
+ cows <- unique(Lact1$ANIMAL_NUMBER)
+
+ncows <- length(cows)
+
+Lact1$lmy <- NA
+  Lact1$ivals <- NA
+ for(i in 1:ncows){
+ 
+  
+
+    test <- (Lact1$ANIMAL_NUMBER == cows[i])
+ 
+    tmp <-  Lact1[test,]
+   
+   alldates <- c(tmp$CALVING_DATE[1], tmp$TD)
+
+   ivals <- as.numeric(as.character(diff(alldates)))
+ ivals <- as.numeric(as.character(diff(c(tmp$CALVING_DATE[1], tmp$TD))))
+  n <- length(ivals)
+ 
+   ivals <- c(ivals, refd - sum(ivals))
+
+    mvals <- c(tmp$MILK_YIELD[1], (tmp$MILK_YIELD[-n] + tmp$MILK_YIELD[-1])/2, tmp$MILK_YIELD[n])
+ 
+   Lact1$lmy[test] <- sum(ivals * mvals)
+
+   Lact1$ivals[test] <- cumsum(ivals[-length(ivals)])
+  }
+  
+  Lact1
+ }
+ Lact1<- get.lmy(Lact1,refd=305)
+ 
+ #####################
+ CORRELATION BETWEEN TEST DAYS AND 305D MILK YIELD
+ 
+library(plyr)                                                                #Library needed to count
+
+data<-read.table("c://Users//esanchez//Desktop//Data.txt",header=T)          #Read data
+data$Animal <- factor(data$Animal, levels=unique(data$Animal))               #Prevent reordering of character factors
+
+Freqs<-count(data$Animal)                                                    #Count frequencies of appearance of animals
+Uniques<-unique(data$Animal)                                                 #Get unique animal IDs
+
+Day<-rep(NA,length=11*length(unique(data$Animal)))                           #Create vectors
+Record<-rep(NA,length=11*length(unique(data$Animal)))
+Cows<-rep(NA,length=11*length(unique(data$Animal)))
+
+k<-0                                                                         #Counter for records in new table
+t<-0                                                                         #Counter for records in original table
+for(i in 1:length(Uniques)){
+    l<-0
+    for(j in 1:Freqs$freq[i]){
+      k<-k+1
+      t<-t+1
+      l<-l+1
+      Cows[k]<-as.character(data$Animal[t])                                                    #Create new records
+      Record[k]<-data$Record[t]
+      Day[k]<-l
+    }
+    if((11-Freqs$freq[i])>0){                                                #Create NA records
+      for(j in 1:(11-Freqs$freq[i])){
+        k<-k+1
+        l<-l+1
+        Cows[k]<-as.character(data$Animal[t])
+        Record[k]<-NA
+        Day[k]<-NA
+      }
+    }
+}
+
+Newdatatable<-cbind.data.frame(Cows,Record,Day)                              #Create new data table
