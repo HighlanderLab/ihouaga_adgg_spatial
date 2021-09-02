@@ -1,0 +1,71 @@
+zim$BIRTH_DTM<-as.Date(DOB$BIRTH.DATE,"%d-%m-%y")
+DOB["BIRTH_DTM"] <- NA
+DOB$BIRTH.DTM<-as.Date(DOB$BIRTH.DATE,"%d-%b-%y")
+DOB$BIRTH.DATE<-format(DOB$BIRTH.DTM,"%d/%m/%Y")
+head(DOB)
+
+
+
+TESTDAYDATE<-as.Date(Zim$TESTDAYDATE,"%d-%m-%y")
+ZIM_LACTATION["TESTDAY_DTM"] <- NA
+ZIM_LACTATION$TESTDAY_DTM<-as.Date(ZIM_LACTATION$TESTDAYDATE,"%d-%b-%y")
+ZIM_LACTATION$TESTDAYDATE<-format(ZIM_LACTATION$TESTDAY_DTM,"%d/%m/%Y")
+head(ZIM_LACTATION)
+
+##########################
+ DATA<-merge(per_herd,kenyamilk,by.x="Var1", by.y="HerdID")
+> head(DATA)
+  Var1 Freq CowID HerdOwner Breed        DOB LactStartDate LactNo TestDayDate TestDayTestType Yield CowAge     lmy dim LSDyear LSDmonth     HYS
+1    1   46  5677         1  FFFF 17/05/1993    26/08/1998      3  15/06/1999                  19.0   1927 5909.50 266    1998        8  119988
+2    1   46  5670         1  FFFF 23/06/1991    18/10/1993      1  23/10/1993                  19.5    848 6265.25     1993       10 1199310
+3    1   46  5671         1  FFFF 18/10/1993    02/02/1996      1  08/02/1996                  12.5    837 5791.50 287    1996        2  119962
+4    1   46  5673         1  FFFF 01/02/2002    12/04/2004      1  15/06/2004                  25.0    801 6946.75 278    2004        4  120044
+5    1   46  5677         1  FFFF 17/05/1993    15/09/1995      1  20/09/1995                  13.0    851 5655.25 304    1995        9  119959
+6    1   46  5678         1  FFFF 11/08/1992    09/01/1995      1  09/01/1995                  18.5    881 4899.25 279    1995        1  119951
+> keep<-DATA$Freq > 50
+> head(keep)
+[1] FALSE FALSE FALSE FALSE FALSE FALSE
+> keep<-subset(DATA, DATA$Freq > 50)
+> head(keep)
+    Var1 Freq CowID HerdOwner Breed        DOB LactStartDate LactNo TestDayDate TestDayTestType Yield CowAge    lmy dim LSDyear LSDmonth      HYS
+101   10   57  6052        10  GGGG 17/05/1993    27/10/1995      1  15/11/1995                    12    893 3404.0 293    1995       10 10199510
+102   10   57  6065        10  GGGG 30/09/1999    22/04/2002      1  26/04/2002                     9    935 2742.5 299    2002        4  1020024
+103   10   57  6058        10  GGGG 07/02/1995    26/03/2003      4  01/04/2003                    12   2969 3653.0 264    2003        3  1020033
+104   10   57  6188        10  GGGG 21/02/1993    04/08/1998      4  15/08/1998                    15   1990 3454.5 297    1998        8  1019988
+105   10   57  8565        10  GGGG 30/10/1989    03/07/1994      1  15/07/1994                    16   1707 3331.0 286    1994        7  1019947
+106   10   57  8576        10  GGGG 08/04/1994    18/11/1997      2  15/12/1997                    19   1347 3947.0 CANM000006284191    1997       11 10199711
+> length(unique(keep$Var1)
+
++ > length(unique(keep$Var1))
+[1] 63
+> length(unique(keep$Freq))
+[1] 56
+> keep<-subset(DATA, DATA$Freq => 50)
+Error: unexpected '=' in "keep<-subset(DATA, DATA$Freq ="
+> keep<-subset(DATA, DATA$Freq >= 50)
+> length(unique(keep$Var1))
+[1] 64
+> write.csv(keep,"keep.csv")
+> length(keep$Var1)
+[1] 30134
+> length(keep$Freq)
+[1] 30134
+> length(keep$HYS)
+[1] 30134
+> length(kenyamilk$lmy)
+[1] 33165
+> length(unique(keep$CowID))
+[1] 14715
+> length(keep$lmy)
+[1] 30134
+###############################################################################################################
+
+format.cow.dates <- function(dat){
+
+ dat$BIRTH_DATE <- as.Date(as.character(dat$BIRTH.DATE), "%d-%b-%y")
+ dat$MILK.WEIGHING.DATE.TIME <- as.Date(as.character(dat$TEST_DATE), "%d/%m/%Y")
+dat$CALVING_DATE <- as.Date(as.character(dat$CALVING.DATE), "%d-%b-%y")
+ dat <- dat[order(dat$ANIMAL_NUMBER, dat$TEST_DATE, ),]
+
+ dat
+}
