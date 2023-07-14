@@ -2,9 +2,9 @@
 
 Files for ihouaga_adgg_spatial project where we want to evaluate the benefit of spatial modelling on the accuracy of genomic prediction in African small holder dairy farms
 
-data
+`data` (ignored in git repo)
   * data folder
-  * see README.txt for details
+  * see `data/README.txt` for details
   
 To get a copy of the data from Datastore do:
   * On Laptop (Apple/Mac)
@@ -27,10 +27,10 @@ To get a copy of the data from Datastore do:
     cp /exports/cmvm/datastore/eb/groups/HighlanderLab/ADGG_spatial/* /exports/cmvm/eddie/eb/groups/HighlanderLab/your_uun/ihouaga_adgg_spatial/data/.
     ```
 
-scripts
+`scripts`
   * all the scripts folder
-  * see README.txt for details
+  * see `scripts/README.txt` for details
 
-results
+`results` (ignored in git repo)
   * all intermediate and final results
-  * see README.txt for details
+  * see `results/README.txt` for details
