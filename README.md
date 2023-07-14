@@ -7,14 +7,16 @@ Files for ihouaga_adgg_spatial project where we want to evaluate the benefit of 
   * see `data/README.txt` for details
   
 To get a copy of the data from Datastore do:
-  * On Laptop (Apple/Mac)
+  * On Laptop
     ```
     cd to_your_working_directory
     git clone https://github.com/HighlanderLab/ihouaga_adgg_spatial.git
     cd ihouaga_adgg_spatial
     mkdir data
-    # load Datastore as mentioned in https://github.com/HighlanderLab/HighlanderLab_Handbook/blob/main/Data/Workspaces.md#Datastore
+    # Option 1) load Datastore as mentioned in https://github.com/HighlanderLab/HighlanderLab_Handbook/blob/main/Data/Workspaces.md#Datastore
     cp /Volumes/HighlanderLab/ADGG_spatial/* data/.
+    # Option 2) make data copy on a disk on Eddie (copy from Datastore to Eddie)
+    scp your_uun@eddie.ecdf.ed.ac.uk:/exports/cmvm/eddie/eb/groups/HighlanderLab/ADGG_spatial/* data/.
     ```
   * On Eddie
     ```
