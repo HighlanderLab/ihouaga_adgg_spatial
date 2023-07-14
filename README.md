@@ -25,6 +25,7 @@ To get a copy of the data from Datastore do:
     mkdir data
     qlogin -q staging
     cp /exports/cmvm/datastore/eb/groups/HighlanderLab/ADGG_spatial/* /exports/cmvm/eddie/eb/groups/HighlanderLab/your_uun/ihouaga_adgg_spatial/data/.
+    exit # to quit staging node
     ```
 
 `scripts`
