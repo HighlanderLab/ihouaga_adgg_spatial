@@ -14,7 +14,7 @@ To get a copy of the data from Datastore do:
     cd ihouaga_adgg_spatial
     mkdir data
     # load Datastore as mentioned in https://github.com/HighlanderLab/HighlanderLab_Handbook/blob/main/Data/Workspaces.md#Datastore
-    cp /Volumes/HighlanderLab/ADGG_spatial/* /exports/cmvm/eddie/eb/groups/HighlanderLab/your_uun/ihouaga_adgg_spatial/data/.
+    cp /Volumes/HighlanderLab/ADGG_spatial/* data/.
     ```
   * On Eddie
     ```
