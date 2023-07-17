@@ -19,7 +19,7 @@ baseDir <- ""
 baseDir <- ""
 
 # ... Gregor's office computer
-baseDir <- "/Users/ggorjanc/Storages/GitBox/HighlanderLab/ihouaga_adgg_spatial"
+baseDir <- "/Users/ggorjanc/Storages/GitBox/HighlanderLab/ihouaga_adgg_spatial_upstream/"
 
 # Change working directory
 setwd(dir = baseDir)
@@ -33,14 +33,22 @@ if (FALSE) {
     "rgdal", # for shapefile work
     "sf", # for shapefile work
     "raster", # for shapefile work
+    "spdep", # for shapefile work - to identify neighbouring regions
     "orthopolynom" # for legendre.polynomials()
   )
   install.packages(pkgs = requiredPackages)
+  install.packages(pkgs = "INLA",
+                   repos=c(getOption("repos"),
+                           INLA = "https://inla.r-inla-download.org/R/stable"),
+                   dep = TRUE)
+  inla.upgrade(testing = TRUE)
 }
 library(tidyverse)
 library(rgdal)
 library(sf)
 library(raster)
+library(spdep)
+library(INLA)
 library(orthopolynom)
 
 (.packages()) # Check loaded packages
@@ -92,25 +100,72 @@ colnames(data1) <- c("cow", # 1 cow ID in numeric form 1:1911
 # ---- Import shapefile geo data -----------------------------------------------
 
 map <- readOGR(dsn = "data/shapefiles/wards_2011/TZwards.shp")
-plot(map)
+# plot(map) # this takes quite a bit of time so we comment it out by default
 # coordinates are in columns long and lat
 coordinates(data1) <- ~long + lat
 
 # Define projection of coordinates
-projection(map) <- CRS("+proj=longlat +datum=WGS84")
-projection(data1) <- CRS("+proj=longlat +datum=WGS84")
+projection(map) <- CRS(projargs = "+proj=longlat +datum=WGS84")
+projection(data1) <- CRS(projargs = "+proj=longlat +datum=WGS84")
 
 # same results if that's how projection is defined
-#proj4string(data) = CRS("+proj=longlat +a=6378249.145 +rf=293.465 +no_defs +type=crs")
-#projection(mapwa)=CRS("+proj=longlat +a=6378249.145 +rf=293.465 +no_defs +type=crs")
+#proj4string(data) <- CRS("+proj=longlat +a=6378249.145 +rf=293.465 +no_defs +type=crs")
+#projection(mapwa) <- CRS("+proj=longlat +a=6378249.145 +rf=293.465 +no_defs +type=crs")
 
-return = over(geometry(data_wa), mapwa, returnList = F) # returnList = F gives dataframe instead list
-head(return)
-return
-head(return)
-#library(reshape2) # Reshape the dataframe
-data$ward_code <- return$Ward_Code
-head(data)
+# Overlay data points with the map to allocate data points to map features
+tmp <- over(x = geometry(data1), y = map, returnList = FALSE)
+head(tmp)
+data1$ward_code <- tmp$Ward_Code
+# Note that we could bring in also region and district code, but to do Besag type
+# modelling, we would also need to get shapefiles of these spatial organisation
+# units. There are 6 regions, so that will not be very fine-grained modelling.
+head(data1)
+
+# ---- Create Besag neighbourhood matrix/file ----------------------------------
+
+# Read in the shapefile
+map <- st_read(dsn = "data/shapefiles/wards_2011/TZwards.shp")
+class(map) # class sf and data.frame
+head(map)
+if (FALSE) {
+  plot(map) # this takes quite a bit of time so we comment it out by default
+  ggplot(map) +
+    geom_sf() +
+    geom_sf_text(data = map, aes(label = Ward_Code), size = 3, colour = "black")
+}
+
+# Construct graph of neighbouring regions for later INLA modelling
+
+# Following the advice from https://github.com/r-spatial/sf/issues/1762
+sf_use_s2(use_s2 = FALSE)
+nb.map <- poly2nb(map) # Construct neighbours list from polygon list
+nb2INLA(file = "data/cleaned_data/ward_neighbours.txt", nb = nb.map)
+nb.map <- inla.read.graph(filename = "data/cleaned_data/ward_neighbours.txt")
+
+nb.matrix <- -inla.graph2matrix(nb.map) # Convert graph to matrix
+dim(nb.matrix) # 3644 by 3644
+nb.matrix[1:5, 1:5]
+diag(nb.matrix) <- 0
+diag(nb.matrix) <- -rowSums(nb.matrix)
+nb.matrix[1:5, 1:5]
+n <- dim(nb.matrix)[1]
+nb.matrixScaled <- inla.scale.model(nb.matrix,
+                                    constr = list(A = matrix(1, 1, n), e = 0))
+print(diag(MASS::ginv(as.matrix(nb.matrixScaled))))
+
+# Saving matrix later for INLA
+save(nb.matrix, nb.matrixScaled,
+     file = "data/cleaned_data/ward_neighbours_precision_matrix.RData")
+
+# Saving triplets form for blupf90
+nb.matrixTril <- summary(tril(nb.matrix))
+nb.matrixScaledTril <- summary(tril(nb.matrixScaled))
+write.table(x = nb.matrixTril,
+            file = "data/cleaned_data/ward_neighbours_precision_matrix_tril.txt",
+            quote = FALSE, row.names = FALSE, col.names = FALSE, sep = " ", na = "0")
+write.table(x = nb.matrixScaledTril,
+            file = "data/cleaned_data/ward_neighbours_precision_matrixScaled_tril.txt",
+            quote = FALSE, row.names = FALSE, col.names = FALSE, sep = " ", na = "0")
 
 # ---- Factor and numeric variables --------------------------------------------
 
@@ -119,7 +174,7 @@ str(data1)
 # Factors
 data1 <- data1 %>%
   mutate_at(.vars = c("cow", "ward", "herd", "cyrsn", "tyrmn", "dgrp", "lacest",
-                      "lac", "htd", "hcyr", "htyr", "pym", "ksea"),
+                      "lac", "htd", "hcyr", "htyr", "pym", "ksea", "ward_code"),
             .funs = as.factor)
 str(data1)
 
@@ -323,9 +378,9 @@ colnames(dataLegendre) <- c("leg0", "leg1", "leg2")
 data1 <- cbind(data1, dataLegendre)
 head(data1)
 
-# Exporting data for blupf90
+# Exporting data for blupf90, INLA, etc.
 selectColumns <- c(
-  "cow", # 1.
+  "cow", # 1
   "milk", # 2
   "ward", # 3
   "herd", # 4
@@ -339,7 +394,8 @@ selectColumns <- c(
   "lat", # 12
   "leg0", # 13
   "leg1", # 14
-  "leg2" # 15
+  "leg2", # 15
+  "ward_code" # 16
 )
 write.table(x = data1[, selectColumns],
             file = "data/cleaned_data/milk_yield_pheno_cleaned_for_blupf90_no_header.txt",
