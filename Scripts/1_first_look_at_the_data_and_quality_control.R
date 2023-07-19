@@ -97,23 +97,56 @@ colnames(data1) <- c("cow", # 1 cow ID in numeric form 1:1911
                      "long", # 21 longitude (east-west - horizontal dimension) [0, 39]
                      "lat") # 22 latitude (north-south - vertical dimension) [-9, 0]
 
+# ---- Fix coordinates -------------------------------------------------------
+
+# Based on preliminary exploratory analysis we found these mistakes
+# (see 2_exploratory_analysis.R). IMPORTANT, to be able to find these mistakes,
+# you have to comment this part of the code, export the RAW (uncleaned) data
+# and use 2_exploratory_analysis.R.
+
+# if (FALSE) {
+# for herd 34 we have two locations
+# -9.41693/1e-04 & -9.41693/34.7935
+data1[data1$herd == "34", "long"] <- 34.7935
+# for herd 108 we have two locations
+# -9.30934/1e-04 & -9.30934/34.7776
+data1[data1$herd == "108", "long"] <- 34.7776
+# for herd 645 we have two locations
+# -9.30934/1e-04 & -9.30934/34.7818
+data1[data1$herd == "645", "long"] <- 34.7818
+# for herd 763 we have two locations
+# -9.41181/1e-04 & -9.41181/34.8018
+data1[data1$herd == "763", "long"] <- 34.8018
+# for herd 872 we have two locations
+# -9.30876/1e-04 & -9.30876/34.7789
+data1[data1$herd == "872", "long"] <- 34.7789
+# for herd 952 we have two locations
+# -9.30494/1e-04 & -9.30494/34.7771
+data1[data1$herd == "952", "long"] <- 34.7771
+
+herdsToRemove <- c(99, 112, 113, 278, 284, 393, 928, 1115)
+sel <- data1$herd %in% herdsToRemove
+data1 <- data1[!sel, ]
+# }
+
 # ---- Import shapefile geo data -----------------------------------------------
 
 map <- readOGR(dsn = "data/shapefiles/wards_2011/TZwards.shp")
 # plot(map) # this takes quite a bit of time so we comment it out by default
 # coordinates are in columns long and lat
-coordinates(data1) <- ~long + lat
+data1SpatialPointsDataFrame <- data1
+coordinates(data1SpatialPointsDataFrame) <- ~long + lat
 
 # Define projection of coordinates
 projection(map) <- CRS(projargs = "+proj=longlat +datum=WGS84")
-projection(data1) <- CRS(projargs = "+proj=longlat +datum=WGS84")
+projection(data1SpatialPointsDataFrame) <- CRS(projargs = "+proj=longlat +datum=WGS84")
 
 # same results if that's how projection is defined
 #proj4string(data) <- CRS("+proj=longlat +a=6378249.145 +rf=293.465 +no_defs +type=crs")
 #projection(mapwa) <- CRS("+proj=longlat +a=6378249.145 +rf=293.465 +no_defs +type=crs")
 
 # Overlay data points with the map to allocate data points to map features
-tmp <- over(x = geometry(data1), y = map, returnList = FALSE)
+tmp <- over(x = geometry(data1SpatialPointsDataFrame), y = map, returnList = FALSE)
 head(tmp)
 data1$ward_code <- tmp$Ward_Code
 # Note that we could bring in also region and district code, but to do Besag type
@@ -151,7 +184,9 @@ nb.matrix[1:5, 1:5]
 n <- dim(nb.matrix)[1]
 nb.matrixScaled <- inla.scale.model(nb.matrix,
                                     constr = list(A = matrix(1, 1, n), e = 0))
-print(diag(MASS::ginv(as.matrix(nb.matrixScaled))))
+# uncomment the below to see what scaling does, but best to keep it commented out
+# because it takes a lot of time to run, ginv() part is slow:(
+# print(diag(MASS::ginv(as.matrix(nb.matrixScaled))))
 
 # Saving matrix later for INLA
 save(nb.matrix, nb.matrixScaled,
@@ -185,126 +220,42 @@ data1 <- data1 %>%
             .funs = as.numeric)
 str(data1)
 
-# ---- Check for duplicates and NA ---------------------------------------------
+# ---- EXPORT raw data for exploratory analysis --------------------------------
 
-nrow(data1) # 19538
+# Uncomment this only if you want to get the raw data, but then also make sure
+# that any data edits above have been done too!
+if (FALSE) {
+  selectColumns <- c(
+    "cow",
+    "milk",
+    "ward",
+    "herd",
+    "cyrsn",
+    "tyrmn",
+    "dgrp",
+    "lac",
+    "age",
+    "long",
+    "lat",
+    "ward_code"
+  )
+  write.csv(x = data1[, selectColumns],
+            file = "data/cleaned_data/milk_yield_pheno_raw.csv",
+            row.names = FALSE)
+}
+
+# ---- Remove duplicates -------------------------------------------------------
+
+nrow(data1) # 19418
 
 # Remove potential duplicated rows
 data1 <- dplyr::distinct(data1)
-
-nrow(data1) # 19538, no duplicates it seems
+nrow(data1) # 19418, no duplicates!
 
 # Check for missing data (NA)
-sum(is.na(data1)) # 0 nothing missing as a NA
+sum(is.na(data1)) # 0
 
 # NOTE: we have seen some 0 for hgirth, which looks like a missing value!
-
-# ---- Data summaries ----------------------------------------------------------
-
-summary(data1)
-
-# number of records
-nrow(data1) # 19538
-
-# number of cows
-length(unique(data1$cow)) # 1911
-
-# number of herds
-length(unique(data1$herd)) # 1396, so out of 1400 herd codes some are not present
-
-# number of wards
-length(unique(data1$ward)) # 156, so out of 157 herd codes some are not present
-
-# number of records per herds per ward
-(tmp <- table(data1$herd, data1$ward)) # 3 to 71
-(tmp2 <- table(tmp[tmp > 0]))
-hist(tmp2)
-
-# number of herds per ward
-tmp <- data1 %>%
-  group_by(ward, herd) %>%
-  dplyr::summarise(n = n())
-tmp2 <- tmp %>%
-  select(ward) %>%
-  dplyr::summarise(nHerdInWard = n())
-summary(tmp2$nHerdInWard) # 1 to 42
-
-# Number of records per cow per herd
-(tmp <- table(data1$herd, data1$cow))
-(tmp2 <- table(tmp[tmp > 0]))
-hist(tmp2) # 3 to 37
-
-# number of records per herd
-(tmp <- table(data1$herd))
-(tmp2 <- table(tmp[tmp > 0]))
-hist(tmp2) # 3 to 71
-
-nrecords_byherd<- data1 %>%
-  group_by(herd) %>%
-  dplyr::summarise(recordherd=n())
-summary(nrecords_byherd$recordherd)
-
-#number of records per ward
-nrecords_byward <- data1 %>%
-  group_by(ward) %>%
-  dplyr::summarise(nrecord=n())
-summary(nrecords_byward$nrecord)
-
-# Number of records per cow per ward
-ncowward<- data1 %>%
-  group_by(ward,cow)%>%
-  dplyr::summarise(ncow_byward= n())
-summary(ncowward$ncow_byward)
-# number of cows per ward
-ncowward_2<- ncowward %>%
-  select(ward) %>%
-  dplyr::summarise(ncowward=n())
-summary(ncowward_2$ncowward)
-
-# Number of parities
-summary(data1$lac)
-
-# Number of cows per parity
-(tmp <- data1 %>%
-  group_by(lac, cow) %>%
-  dplyr::summarise(n = n()) %>%
-  select(lac) %>%
-  dplyr::summarise(n = n()))
-#  lac     no. cows
-# 1 1      1031
-# 2 2      1217
-# 3 3       735
-# 4 4       279
-# 5 5        69
-# 6 6        16
-# 7 7         6
-# 8 8         2
-# 9 9         1
-
-(tmp <- data1 %>%
-  group_by(lacest, cow) %>%
-  dplyr::summarise(n = n()) %>%
-  select(lacest) %>%
-  dplyr::summarise(n = n()))
-# 1 1       1031
-# 2 2       1465
-
-# Summary age
-summary(data1$age)
-# Min. 1st Qu.  Median    Mean 3rd Qu.    Max.
-# 18.05   38.79   47.83   50.28   58.88  162.10
-
-#number of levels of calving seasons
-nlevels(data1$ksea) # 6
-
-#number of levels of calving year season
-nlevels(data1$cyrsn) # 29
-
-#levels of test-year-month
-nlevels(data1$tyrmn) # 61
-
-# number of levels of breed proportion (exotic)
-nlevels(data1$dgrp) # 4
 
 # ---- Milk stats --------------------------------------------------------------
 
@@ -355,7 +306,7 @@ data1 %>%
   ylab("Test-day Milk Yield") +
   theme_bw()
 
-# ---- Export cleaned data for blupf90 & INLA as in Mrode et al. (2021) --------
+# ---- EXPORT cleaned data for blupf90 & INLA as in Mrode et al. (2021) --------
 
 dir.create(path = "data/cleaned_data/")
 

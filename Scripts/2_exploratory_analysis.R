@@ -43,15 +43,216 @@ library(tidyverse)
 rm(list = ls())
 
 # Read in the data
-data1 <- read.csv(file = "data/cleaned_data/milk_yield_pheno_cleaned.csv")
+data1 <- read.csv(file = "data/cleaned_data/milk_yield_pheno_raw.csv")
 str(data1)
 
 # Factors
 data1 <- data1 %>%
-  mutate_at(.vars = c("cow", "ward", "herd", "cyrsn", "tyrmn", "dgrp", "lac",
-                      "lacgr"),
+  mutate_at(.vars = c("cow", "ward", "herd", "cyrsn", "tyrmn", "dgrp", "lac", "ward_code"),
             .funs = as.factor)
 str(data1)
+
+# ---- Data summaries ----------------------------------------------------------
+
+summary(data1)
+
+# number of records
+nrow(data1) # 19538
+
+# number of cows
+length(unique(data1$cow)) # 1911
+
+# number of herds
+length(unique(data1$herd)) # 1396, so out of 1400 herd codes some are not present
+
+# number of wards
+length(unique(data1$ward)) # 156, so out of 157 herd codes some are not present
+
+# number of records per herds per ward
+(tmp <- table(data1$herd, data1$ward)) # 3 to 71
+(tmp2 <- table(tmp[tmp > 0]))
+hist(tmp2)
+
+# number of herds per ward
+tmp <- data1 %>%
+  group_by(ward, herd) %>%
+  dplyr::summarise(n = n())
+tmp2 <- tmp %>%
+  select(ward) %>%
+  dplyr::summarise(nHerdInWard = n())
+summary(tmp2$nHerdInWard) # 1 to 42
+
+# Number of records per cow per herd
+(tmp <- table(data1$herd, data1$cow))
+(tmp2 <- table(tmp[tmp > 0]))
+hist(tmp2) # 3 to 37
+
+# number of records per herd
+(tmp <- table(data1$herd))
+(tmp2 <- table(tmp[tmp > 0]))
+hist(tmp2) # 3 to 71
+
+nrecords_byherd<- data1 %>%
+  group_by(herd) %>%
+  dplyr::summarise(recordherd=n())
+summary(nrecords_byherd$recordherd)
+
+#number of records per ward
+nrecords_byward <- data1 %>%
+  group_by(ward) %>%
+  dplyr::summarise(nrecord=n())
+summary(nrecords_byward$nrecord)
+
+# Number of records per cow per ward
+ncowward<- data1 %>%
+  group_by(ward,cow)%>%
+  dplyr::summarise(ncow_byward= n())
+summary(ncowward$ncow_byward)
+# number of cows per ward
+ncowward_2<- ncowward %>%
+  select(ward) %>%
+  dplyr::summarise(ncowward=n())
+summary(ncowward_2$ncowward)
+
+# Number of parities
+summary(data1$lac)
+
+# Number of cows per parity
+(tmp <- data1 %>%
+    group_by(lac, cow) %>%
+    dplyr::summarise(n = n()) %>%
+    select(lac) %>%
+    dplyr::summarise(n = n()))
+#  lac     no. cows
+# 1 1      1031
+# 2 2      1217
+# 3 3       735
+# 4 4       279
+# 5 5        69
+# 6 6        16
+# 7 7         6
+# 8 8         2
+# 9 9         1
+
+(tmp <- data1 %>%
+    group_by(lacest, cow) %>%
+    dplyr::summarise(n = n()) %>%
+    select(lacest) %>%
+    dplyr::summarise(n = n()))
+# 1 1       1031
+# 2 2       1465
+
+# Summary age
+summary(data1$age)
+# Min. 1st Qu.  Median    Mean 3rd Qu.    Max.
+# 18.05   38.79   47.83   50.28   58.88  162.10
+
+#number of levels of calving seasons
+nlevels(data1$ksea) # 6
+
+#number of levels of calving year season
+nlevels(data1$cyrsn) # 29
+
+#levels of test-year-month
+nlevels(data1$tyrmn) # 61
+
+# number of levels of breed proportion (exotic)
+nlevels(data1$dgrp) # 4
+
+# ---- QC coordinates ----------------------------------------------------------
+
+# 184 missing wards - it seems from the wrong coordinates
+sel <- is.na(data1$ward_code)
+table(factor(data1[sel, "herd"]))
+#   34   99  108  112  113  278  284  393  645  763  872  928  952 1115
+#    6   12   10   15    9    7   14   41   10   13   10    9   15   13
+
+summary(data1$lat)
+#.    Min.  1st Qu.   Median     Mean  3rd Qu.     Max.
+# -9.45992 -8.30842 -5.03902 -5.52181 -3.35278  0.09999
+summary(data1$lat[!sel]) # animals with known ward
+#    Min. 1st Qu.  Median    Mean 3rd Qu.    Max.
+# -9.460  -8.305  -5.038  -5.512  -3.353  -3.070
+summary(data1$lat[sel]) # animals with unknown ward
+#.    Min.  1st Qu.   Median     Mean  3rd Qu.     Max.
+# -9.41693 -9.30934 -9.30494 -6.54163  0.09999  0.09999
+# they go to ~0, while with known ward they go to ~-3
+
+summary(data1$long)
+#   Min. 1st Qu.  Median    Mean 3rd Qu.    Max.
+# 0.0001 35.2970 36.7329 36.2039 37.5846 39.1247
+summary(data1$long[!sel]) # animals with known ward
+#   Min. 1st Qu.  Median    Mean 3rd Qu.    Max.
+# 32.86   35.32   36.73   36.55   37.59   39.12
+summary(data1$long[sel]) # animals with unknown ward
+#   Min. 1st Qu.  Median    Mean 3rd Qu.    Max.
+# 0.0001  0.0001  0.0001  0.2935  0.9999  0.9999
+
+tmpHerds <- unique(data1[sel, "herd"])
+selTmpHerds <- data1$herd %in% tmpHerds
+sum(selTmpHerds) # 231 records
+tmp <- table(factor(data1[selTmpHerds, "herd"]),
+             paste0(data1[selTmpHerds, "lat"], "/", data1[selTmpHerds, "long"]))
+selTmp <- rowSums(tmp > 0) > 1
+tmp[selTmp, ]
+# for herd 34 we have two locations
+# -9.41693/1e-04 & -9.41693/34.7935
+data1[data1$herd == "34", "long"] <- 34.7935
+# for herd 108 we have two locations
+# -9.30934/1e-04 & -9.30934/34.7776
+data1[data1$herd == "108", "long"] <- 34.7776
+# for herd 645 we have two locations
+# -9.30934/1e-04 & -9.30934/34.7818
+data1[data1$herd == "645", "long"] <- 34.7818
+# for herd 763 we have two locations
+# -9.41181/1e-04 & -9.41181/34.8018
+data1[data1$herd == "763", "long"] <- 34.8018
+# for herd 872 we have two locations
+# -9.30876/1e-04 & -9.30876/34.7789
+data1[data1$herd == "872", "long"] <- 34.7789
+# for herd 952 we have two locations
+# -9.30494/1e-04 & -9.30494/34.7771
+data1[data1$herd == "952", "long"] <- 34.7771
+
+# 184 missing wards - it seems from the wrong coordinates
+sel <- is.na(data1$ward_code) & !(data1$herd %in% c("34", "108", "645", "763", "872", "952"))
+table(factor(data1[sel, "herd"]))
+# 99  112  113  278  284  393  928 1115
+# 12   15    9    7   14   41    9   13
+sum(sel)
+# 120 still to be fixed - in 8 herds
+
+summary(data1$lat)
+#.    Min.  1st Qu.   Median     Mean  3rd Qu.     Max.
+# -9.45992 -8.30842 -5.03902 -5.52181 -3.35278  0.09999
+summary(data1$lat[!sel]) # animals with known ward
+#    Min. 1st Qu.  Median    Mean 3rd Qu.    Max.
+# -9.460  -8.307  -5.039  -5.525  -3.353  -3.070
+summary(data1$lat[sel]) # animals with unknown ward
+#     Min.  1st Qu.   Median     Mean  3rd Qu.     Max.
+# -9.41240 -9.30673 -9.07640 -5.04964  0.09999  0.09999
+# they go to ~0, while with known ward they go to ~-3
+
+summary(data1$long)
+#   Min. 1st Qu.  Median    Mean 3rd Qu.    Max.
+# 0.0001 35.2970 36.7329 36.2039 37.5846 39.1247
+summary(data1$long[!sel]) # animals with known ward
+#   Min. 1st Qu.  Median    Mean 3rd Qu.    Max.
+# 32.86   35.32   36.73   36.55   37.59   39.12
+summary(data1$long[sel]) # animals with unknown ward
+#   Min. 1st Qu.  Median    Mean 3rd Qu.    Max.
+# 0.0001  0.0001  0.0001  0.2935  0.9999  0.9999
+# again all around zero!
+
+# We don't know what to do with them so we will remove them, BUT these farms
+# should have coordinates fixed in the future
+(herdsToRemove <- unique(data1[sel, "herd"]))
+herdsToRemove <- c(99, 112, 113, 278, 284, 393, 928, 1115)
+sel <- data1$herd %in% herdsToRemove
+sum(sel) # 120
+data1 <- data1[!sel,]
+nrow(data1) # 19418
+length(unique(data1$cow)) # 1899
 
 # ---- Descriptive stats -------------------------------------------------------
 
@@ -96,134 +297,128 @@ tmp %>%
 
 
 table(data1$lac)
-table(data2$lacgr)
+table(data1$lacgr)
 
-length(unique(data2$herd))
+length(unique(data1$herd))
 #Number of rows
-nrow(data2) # 19494 records
+nrow(data1) # 19494 records
 #number of variables
-ncol(data2)#  16
+ncol(data1)#  16
 #Number of cows
-length(unique(data2$cow)) # 1906
+length(unique(data1$cow)) # 1906
 # Milk Yield
-summary(data2$milk) #min=1, median=8.00 max= 40
-mean(data2$milk) #8.33
-var(data2$milk) # 18.66
-sd(data2$milk) # 4.32
-hist(na.omit(data2$milk))
+summary(data1$milk) #min=1, median=8.00 max= 40
+mean(data1$milk) #8.33
+var(data1$milk) # 18.66
+sd(data1$milk) # 4.32
+hist(na.omit(data1$milk))
 
-################################################################################
-#Ward
-################################################################################
+# ---- Ward --------------------------------------------------------------------
 
 #Number of levels of wards
-length(unique(data2$ward)) # 156 wards
-table(data2$ward)
-table(table(data2$ward)) # number of records per ward ranged from 3 to 979
-plot(data2$ward,data2$milk)
+length(unique(data1$ward)) # 156 wards
+table(data1$ward)
+table(table(data1$ward)) # number of records per ward ranged from 3 to 979
+plot(data1$ward,data1$milk)
 
 # Load library dplyr
 library(dplyr)
 
 #calculate mean and sd of milk yield  by ward
-data2_ward_mean_std <- data2 %>%
+data1_ward_mean_std <- data1 %>%
   group_by(ward) %>%
   summarise_at(vars(milk), list(mean=mean, sd=sd)) %>%
   as.data.frame()
 
 #view results
-data2_ward_mean_std
+data1_ward_mean_std
 #plot mean and standard deviation of milk yield by ward
-ggplot(data2_ward_mean_std , aes(x=ward, y=mean)) +
+ggplot(data1_ward_mean_std , aes(x=ward, y=mean)) +
   geom_errorbar(aes(ymin=mean-sd, ymax=mean+sd), width=.3) +
   geom_point(size=2)
 
-################################################################################
-#Calving year-season
-################################################################################
+# ---- Calving year-season -----------------------------------------------------
 
 #Number of levels of CYS
-length(unique(data2$cyrsn)) # 29 levels
-table(data2$cyrsn)
-table(table(data2$cyrsn)) # Ranges from 1 to 2663
+length(unique(data1$cyrsn)) # 29 levels
+table(data1$cyrsn)
+table(table(data1$cyrsn)) # Ranges from 1 to 2663
 
 # Plot mean and sd of milk yield  per calving year season level
 
-data2_cyrsn_mean_std <- data2 %>%
+data1_cyrsn_mean_std <- data1 %>%
   group_by(cyrsn) %>%
   summarise_at(vars(milk), list(mean=mean, sd=sd)) %>%
   as.data.frame()
 
 #view results
-data2_cyrsn_mean_std
+data1_cyrsn_mean_std
 #plot mean and standard deviation of milk yield by ward
-ggplot(data2_cyrsn_mean_std , aes(x=cyrsn, y=mean)) +
+ggplot(data1_cyrsn_mean_std , aes(x=cyrsn, y=mean)) +
   geom_errorbar(aes(ymin=mean-sd, ymax=mean+sd), width=.3) +
   geom_point(size=1)
 
-################################################################################
-#Lactation group
-################################################################################
+# ---- Lactation group ---------------------------------------------------------
 
-length(unique(data2$lacgr)) # 3 levels
-table(data2$lacgr)
-table(table(data2$lacgr))
+length(unique(data1$lacgr)) # 3 levels
+table(data1$lacgr)
+table(table(data1$lacgr))
 
 # Plot mean and sd of milk yield  per lactation group
 
-data2_lacgr_mean_std <- data2 %>%
+data1_lacgr_mean_std <- data1 %>%
   group_by(lacgr) %>%
   summarise_at(vars(milk), list(mean=mean, sd=sd)) %>%
   as.data.frame()
 
 #view results
-data2_lacgr_mean_std
+data1_lacgr_mean_std
 #plot mean and standard deviation of milk yield by ward
-ggplot(data2_lacgr_mean_std , aes(x=lacgr, y=mean)) +
+ggplot(data1_lacgr_mean_std , aes(x=lacgr, y=mean)) +
   geom_errorbar(aes(ymin=mean-sd, ymax=mean+sd), width=.3) +
   geom_point(size=2)
 
-################################################################################
-# Herd
-################################################################################
-data2$herd =as.factor(data2$herd)
-length(unique(data2$herd)) # 1394
-table(data2$herd)
-table(table(data2$herd))
+# ---- Herd --------------------------------------------------------------------
+
+data1$herd = as.factor(data1$herd)
+length(unique(data1$herd)) # 1394
+table(data1$herd)
+table(table(data1$herd))
 # Plot mean and sd of milk yield  per herd
 
-data2_herd_mean_std <- data2 %>%
+data1_herd_mean_std <- data1 %>%
   group_by(herd) %>%
   summarise_at(vars(milk), list(mean=mean, sd=sd)) %>%
   as.data.frame()
 
 #view results
-data2_herd_mean_std
+data1_herd_mean_std
 #plot mean and standard deviation of milk yield by ward
-ggplot(data2_herd_mean_std , aes(x=herd, y=mean)) +
+ggplot(data1_herd_mean_std , aes(x=herd, y=mean)) +
   geom_errorbar(aes(ymin=mean-sd, ymax=mean+sd), width=.3) +
   geom_point(size=2)
 
-################################################################################
-# Explore coordinates
-################################################################################
+# ---- Explore coordinates -----------------------------------------------------
 
 # 1. How many records we have?
 
 length(data1$cow)
+# 19538 records
 # 19494 records
 
 # 2. How many unique animals with records we have?
-length(unique(data2$cow))
-#1906
+length(unique(data1$cow))
+# 1911
+# 1906
+
 # 3. How many herds we have?
-length(unique(data2$herd))
+length(unique(data1$herd))
 # 1394 herds
 # 4. How many records per herd we have?
-table(table(data2$herd))
+table(table(data1$herd))
 # Number of record per herd ranged from 3 to 71
 
-nrecords_byherd<- data2 %>%
+nrecords_byherd<- data1 %>%
   group_by(herd) %>%
   summarise(recordherd=n())
 summary(nrecords_byherd$recordherd)
@@ -234,7 +429,7 @@ summary(nrecords_byherd$recordherd)
 
 # 5. How many animals per herd we have?
 # Number of records per cow per herd
-ncowherd<- data2 %>%
+ncowherd<- data1 %>%
   group_by(herd,cow)%>%
   summarise(ncow_byherd= n())
 summary(ncowherd$ncow_byherd)
@@ -248,17 +443,16 @@ summary(ncowherd_2$ncowherd)
 # 3.00    6.00    9.00   10.23   14.00      37.00
 
 # Descriptive stats of age and days in milk
-summary(data2$lac)
-summary(data2$age) # age in months
+summary(data1$lac)
+summary(data1$age) # age in months
 #Min.   1st Qu.  Median Mean    3rd Qu.    Max.
 #18.05   38.79   47.86   50.29   58.88     162.10
 # Histogram of age
-hist(na.omit(data2$age))
-head(data2, n=1)
+hist(na.omit(data1$age))
+head(data1, n=1)
 
-################################################################################
-# Descriptive statistics of coordinates
-################################################################################
+# ----- Descriptive statistics of coordinates ----------------------------------
+
 setwd("C:/Users/Lenovo/OneDrive/Documents/adgg")
 getwd()
 dir()
@@ -369,8 +563,7 @@ head(data5)
 nrow(data5)
 model1 <- d
 
-############################################################################
-#Mapping  new data (data5) without wrong GPS in R
+# ---- Mapping  new data (data5) without wrong GPS in R ------------------------
 
 library(sf)
 library(rgdal)
@@ -433,11 +626,10 @@ x2y2 <- data3[,c(11,12)]
 ggplot(data = mapwa2) +
   geom_sf() +
   geom_point(data = x2y2, aes(x = long, y = lat))
-################################################################################
-# Ward spatial
-################################################################################
+
+# ---- Ward spatial ------------------------------------------------------------
+
 # Ward Neigbouring relationship
-################################################################################
 
 # construct graph of neighbours (Library INLA)
 library(spdep) # To identify if two regions are neighbours
