@@ -164,7 +164,9 @@ if (FALSE) {
   plot(map) # this takes quite a bit of time so we comment it out by default
   ggplot(map) +
     geom_sf() +
-    geom_sf_text(data = map, aes(label = Ward_Code), size = 3, colour = "black")
+    geom_sf_text(data = map, aes(label = Ward_Code), size = 3, colour = "black") +
+    geom_point(data = data1, aes(x = long, y = lat))
+  plot(data1$long, data1$lat) # looks about alright!
 }
 
 # Construct graph of neighbouring regions for later INLA modelling
