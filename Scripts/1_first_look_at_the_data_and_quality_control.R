@@ -124,6 +124,8 @@ data1[data1$herd == "872", "long"] <- 34.7789
 # -9.30494/1e-04 & -9.30494/34.7771
 data1[data1$herd == "952", "long"] <- 34.7771
 
+# For these herds we only had one coordinates so we could not fix them and we
+# have hence, sadly, removed them from the analysis
 herdsToRemove <- c(99, 112, 113, 278, 284, 393, 928, 1115)
 sel <- data1$herd %in% herdsToRemove
 data1 <- data1[!sel, ]
@@ -204,6 +206,19 @@ write.table(x = nb.matrixScaledTril,
             file = "data/cleaned_data/ward_neighbours_precision_matrixScaled_tril.txt",
             quote = FALSE, row.names = FALSE, col.names = FALSE, sep = " ", na = "0")
 
+# ---- Regions based on clustering of the coordinates --------------------------
+
+# We did the following based on looking at this plot
+plot(data1$long, data1$lat) # looks about alright!
+
+data1$region <- 1
+data1$region[data1$lat > -4] <- 2
+data1$region[data1$lat < -7 & data1$long > 34] <- 3
+data1$region[data1$lat < -7 & data1$long < 34] <- 4
+table(data1$region)
+#    1    2    3    4
+# 4547 8525 3674 2672
+
 # ---- Factor and numeric variables --------------------------------------------
 
 str(data1)
@@ -211,7 +226,8 @@ str(data1)
 # Factors
 data1 <- data1 %>%
   mutate_at(.vars = c("cow", "ward", "herd", "cyrsn", "tyrmn", "dgrp", "lacest",
-                      "lac", "htd", "hcyr", "htyr", "pym", "ksea", "ward_code"),
+                      "lac", "htd", "hcyr", "htyr", "pym", "ksea", "ward_code",
+                      "region"),
             .funs = as.factor)
 str(data1)
 
@@ -239,7 +255,8 @@ if (FALSE) {
     "age",
     "long",
     "lat",
-    "ward_code"
+    "ward_code",
+    "region"
   )
   write.csv(x = data1[, selectColumns],
             file = "data/cleaned_data/milk_yield_pheno_raw.csv",
@@ -258,55 +275,6 @@ nrow(data1) # 19418, no duplicates!
 sum(is.na(data1)) # 0
 
 # NOTE: we have seen some 0 for hgirth, which looks like a missing value!
-
-# ---- Milk stats --------------------------------------------------------------
-
-# Milk test-day milk yield across 9 lactations
-min(data1$milk)
-max(data1$milk)
-mean(data1$milk, na.rm = TRUE)
-sd(data1$milk, na.rm = TRUE)
-hist(na.omit(data1$milk))
-
-# Mean and Variance - grouped by parity (lactation)
-SMilk <- data1 %>%
-  group_by(lac) %>%
-  dplyr::summarise(
-    MeanMilk = mean(milk, na.rm = TRUE),
-    MedianMilk = median(milk, na.rm = TRUE),
-    VarMilk = var(milk, na.rm = TRUE),
-    SdMilk =  sqrt(VarMilk),
-    nMilk = n()
-  )
-SMilk
-
-SMilk %>%
-  ggplot(aes(y = MeanMilk, x = lac,  colour = lac)) +
-  geom_point(aes(label = lac)) +
-  xlab("Parity") +
-  ylab("E(Milk)") +
-  theme_bw()
-
-SMilk %>%
-  ggplot(aes(y = SdMilk, x = lac,  colour = lac)) +
-  geom_point(aes(label = lac)) +
-  xlab("Parity") +
-  ylab("Sd(Milk)") +
-  theme_bw()
-
-# We can see the milk production increases up to parity xxxx 3-4 and then
-# starts to decrease. This is related to the combination of effect of
-# parity and number of observations???? It's fine - this is exepected from such
-# data - senescence and selection.
-
-data1 %>%
-  mutate_at("lac", factor) %>%
-  mutate(MYc = milk-mean(milk)) %>%
-  ggplot(aes(y = MYc, x = lac)) +
-  geom_boxplot() +
-  xlab("Levels of Parity") +
-  ylab("Test-day Milk Yield") +
-  theme_bw()
 
 # ---- EXPORT cleaned data for blupf90 & INLA as in Mrode et al. (2021) --------
 
@@ -348,7 +316,8 @@ selectColumns <- c(
   "leg0", # 13
   "leg1", # 14
   "leg2", # 15
-  "ward_code" # 16
+  "ward_code", # 16
+  "region" # 17
 )
 write.table(x = data1[, selectColumns],
             file = "data/cleaned_data/milk_yield_pheno_cleaned_for_blupf90_no_header.txt",

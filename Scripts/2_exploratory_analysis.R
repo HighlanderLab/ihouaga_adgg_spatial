@@ -48,7 +48,8 @@ str(data1)
 
 # Factors
 data1 <- data1 %>%
-  mutate_at(.vars = c("cow", "ward", "herd", "cyrsn", "tyrmn", "dgrp", "lac", "ward_code"),
+  mutate_at(.vars = c("cow", "ward", "herd", "cyrsn", "tyrmn", "dgrp", "lac",
+                      "ward_code", "region"),
             .funs = as.factor)
 str(data1)
 
@@ -260,6 +261,56 @@ summary(data1$milk)
 hist(data1$milk, breaks = 0:41)
 # tail perhaps a bit too long, but likely OK!
 
+
+# ---- Milk stats --------------------------------------------------------------
+
+# Milk test-day milk yield across 9 lactations
+min(data1$milk)
+max(data1$milk)
+mean(data1$milk, na.rm = TRUE)
+sd(data1$milk, na.rm = TRUE)
+hist(na.omit(data1$milk))
+
+# Mean and Variance - grouped by parity (lactation)
+SMilk <- data1 %>%
+  group_by(lac) %>%
+  dplyr::summarise(
+    MeanMilk = mean(milk, na.rm = TRUE),
+    MedianMilk = median(milk, na.rm = TRUE),
+    VarMilk = var(milk, na.rm = TRUE),
+    SdMilk =  sqrt(VarMilk),
+    nMilk = n()
+  )
+SMilk
+
+SMilk %>%
+  ggplot(aes(y = MeanMilk, x = lac,  colour = lac)) +
+  geom_point(aes(label = lac)) +
+  xlab("Parity") +
+  ylab("E(Milk)") +
+  theme_bw()
+
+SMilk %>%
+  ggplot(aes(y = SdMilk, x = lac,  colour = lac)) +
+  geom_point(aes(label = lac)) +
+  xlab("Parity") +
+  ylab("Sd(Milk)") +
+  theme_bw()
+
+# We can see the milk production increases up to parity xxxx 3-4 and then
+# starts to decrease. This is related to the combination of effect of
+# parity and number of observations???? It's fine - this is exepected from such
+# data - senescence and selection.
+
+data1 %>%
+  mutate_at("lac", factor) %>%
+  mutate(MYc = milk-mean(milk)) %>%
+  ggplot(aes(y = MYc, x = lac)) +
+  geom_boxplot() +
+  xlab("Levels of Parity") +
+  ylab("Test-day Milk Yield") +
+  theme_bw()
+
 # ---- ... by lactation --------------------------------------------------------
 
 summary(data1$lac)
@@ -294,7 +345,6 @@ tmp %>%
   theme_bw()
 
 # ---- ... by TODO --------------------------------------------------------
-
 
 table(data1$lac)
 table(data1$lacgr)
@@ -336,6 +386,13 @@ data1_ward_mean_std
 ggplot(data1_ward_mean_std , aes(x=ward, y=mean)) +
   geom_errorbar(aes(ymin=mean-sd, ymax=mean+sd), width=.3) +
   geom_point(size=2)
+
+#calculate mean and sd of milk yield  by ward
+tmp <- data1 %>%
+  group_by(region) %>%
+  summarise_at(vars(milk), list(n=length, mean=mean, sd=sd)) %>%
+  as.data.frame()
+tmp
 
 # ---- Calving year-season -----------------------------------------------------
 
