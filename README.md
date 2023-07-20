@@ -6,7 +6,7 @@ Files for ihouaga_adgg_spatial project where we want to evaluate the benefit of 
   * data folder
   * see `data/README.txt` for details
   
-To get a copy of the data from Datastore do:
+To get a copy of the data from Datastore, do:
   * On Laptop
     ```
     cd to_your_working_directory
