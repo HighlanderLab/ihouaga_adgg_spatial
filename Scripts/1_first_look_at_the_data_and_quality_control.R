@@ -53,6 +53,9 @@ library(orthopolynom)
 
 (.packages()) # Check loaded packages
 
+# Folder where we will be exporting cleaned data
+dir.create(path = "data/cleaned_data/")
+
 # ---- Import pheno data -------------------------------------------------------
 
 # Clear the environment
@@ -96,6 +99,16 @@ colnames(data1) <- c("cow", # 1 cow ID in numeric form 1:1911
                      "bcs", # 20 body condition score [1, 5]
                      "long", # 21 longitude (east-west - horizontal dimension) [0, 39]
                      "lat") # 22 latitude (north-south - vertical dimension) [-9, 0]
+
+# ---- Import genomic data [SLOWWWW] -------------------------------------------
+
+# Import SNP data (already QCed by Raphael so we will just take it as it is!)
+geno <- read.table(file = "data/original_data/snpref-isi.txt", header = FALSE)
+geno[1:10, 1:10]
+dim(geno) # 1911 664823
+colnames(geno)
+summary(geno$V1) # IDs from 1 to 1916
+colnames(geno)[1] <- "cow"
 
 # ---- Fix coordinates -------------------------------------------------------
 
@@ -176,7 +189,7 @@ if (FALSE) {
 # Following the advice from https://github.com/r-spatial/sf/issues/1762
 sf_use_s2(use_s2 = FALSE)
 nb.map <- poly2nb(map) # Construct neighbours list from polygon list
-nb2INLA(file = "data/cleaned_data/ward_neighbours.txt", nb = nb.map)
+nb2INLA(nb = nb.map, file = "data/cleaned_data/ward_neighbours.txt")
 nb.map <- inla.read.graph(filename = "data/cleaned_data/ward_neighbours.txt")
 
 nb.matrix <- -inla.graph2matrix(nb.map) # Convert graph to matrix
@@ -276,9 +289,101 @@ sum(is.na(data1)) # 0
 
 # NOTE: we have seen some 0 for hgirth, which looks like a missing value!
 
-# ---- EXPORT cleaned data for blupf90 & INLA as in Mrode et al. (2021) --------
+# ---- Remove non-genotyped cows and renumber IDs ------------------------------
 
-dir.create(path = "data/cleaned_data/")
+# In GBLUP we can only work with genotyped animals - non-genotyped animals will
+# hence be removed (see later),
+
+# First encode genotyped animals as 1:n
+genoCows <- data.frame(cowOld = geno$cow, cow = 1:nrow(geno))
+geno$cow <- genoCows$cow # overwritting the old code with the new (backup is in genoCows)
+
+# Save different cow IDs as a backup
+write.csv(genoCows, file = "data/cleaned_data/genoCows_different_id.csv")
+
+# Remove phenotype records for animals that are not genotyped
+sel <- data1$cow %in% genoCows$cowOld
+sum(sel); nrow(data1); length(unique(data1$cow)) # 19375, 19418, 1899
+
+head(genoCows, n = 2)
+head(data1, n = 2)
+
+# ... cows in geno data, but not in phenotype data
+tmp <- !genoCows$cowOld %in% data1$cow
+genoCows[tmp, ]
+#       cow cowIId
+# 105   106    105
+# 623   626    623
+# 784   787    784
+# 786   789    786
+# 1107 1111   1107
+# 1108 1112   1108
+# 1109 1113   1109
+# 1322 1326   1322
+# 1860 1865   1860
+# 1862 1867   1862
+# 1866 1871   1866
+# 1867 1872   1867
+# 1907 1912   1907
+# 1908 1913   1908
+# 1909 1914   1909
+# 1910 1915   1910
+# 1911 1916   1911
+
+# ... cows in phenotype data, but not in genotype data
+tmp <- !data1$cow %in% genoCows$cowOld
+unique(data1[tmp, "cow"])
+# 18  849 1428  294  151
+
+# ... looking at cow 18 specifically
+genoCows[genoCows$cowOld %in% 17:20, ] # 18 missing from genotype data
+data1[data1$cow %in% 17:20, ] # 18 present in phenotype data
+
+# ... now removing phenotype records
+sel <- data1$cow %in% genoCows$cowOld
+data1 <- data1[sel, ]
+sum(sel); nrow(data1); length(unique(data1$cow)) # 19375, 19375, 1894
+
+# Recode phenotyped animals into 1:n according to geno 1:n codes
+data1$cowOld <- data1$cow # saving the old coding
+sel <- match(data1$cow, table = genoCows$cowOld)
+data1$cow <- genoCows$cow[sel]
+head(data1[, c("cow", "cowOld")])
+tail(data1[, c("cow", "cowOld")])
+
+genoCows[genoCows$cowOld %in% c(296, 860), ]
+
+nrow(genoCows) # 1911
+length(unique(data1$cow)) # 1894
+
+colnames(geno)[1:10]
+colnames(geno)[(ncol(geno)-10):ncol(geno)]
+
+# ---- Build and EXPORT GRM ----------------------------------------------------
+
+geno <- as.matrix(geno[, -1])
+nMarker <- ncol(geno) # 664822
+alleleFreq <- colMeans(geno) / 2
+hist(alleleFreq)
+for (marker in 1:nMarker) {
+  # marker <- 1
+  geno[, marker] <- geno[, marker] - 2 * alleleFreq[marker]
+}
+k <- 2 * sum(alleleFreq * (1 - alleleFreq))
+GRM <- tcrossprod(geno) / k
+dim(GRM) # 1911 x 1911
+GRM[1:5, 1:5]
+hist(diag(GRM))
+hist(GRM[lower.tri(GRM)])
+# looks OK!
+
+# Get inverse
+# ... add tiny value to diagonal to make GRM invertible
+diag(GRM) <- diag(GRM) + 0.01
+GRMInv <- solve(GRM)
+save(GRMInv, file = "data/cleaned_data/GRMInv.RData")
+
+# ---- EXPORT cleaned data for blupf90 & INLA as in Mrode et al. (2021) --------
 
 # Create column for grouped parity (1,2 and 3+)
 data1$lac <- as.numeric(data1$lac)
@@ -313,11 +418,12 @@ selectColumns <- c(
   "age", # 10
   "long", # 11
   "lat", # 12
-  "leg0", # 13
-  "leg1", # 14
-  "leg2", # 15
-  "ward_code", # 16
-  "region" # 17
+  "dim", # 13
+  "leg0", # 14
+  "leg1", # 15
+  "leg2", # 16
+  "ward_code", # 17
+  "region" # 18
 )
 write.table(x = data1[, selectColumns],
             file = "data/cleaned_data/milk_yield_pheno_cleaned_for_blupf90_no_header.txt",
