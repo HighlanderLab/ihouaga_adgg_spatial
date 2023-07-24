@@ -47,7 +47,7 @@ library(INLA)
 # Clear the environment
 rm(list = ls())
 
-# Read in the data
+# Read in the phenotype data
 data1 <- read.csv(file = "data/cleaned_data/milk_yield_pheno_cleaned.csv")
 str(data1)
 
@@ -57,6 +57,18 @@ data1 <- data1 %>%
                       "ward_code", "region"),
             .funs = as.factor)
 str(data1)
+
+# Read in the Besag TODO
+nb.map <- inla.read.graph(filename = "data/cleaned_data/ward_neighbours.txt")
+
+nb.matrix, nb.matrixScaled
+"data/cleaned_data/ward_neighbours_precision_matrix.RData"
+
+# Read in the genomic relationship matrix TODO
+load(file = "data/cleaned_data/GRM.RData")
+
+
+
 
 #===========================================================================================================================================================
 # ADGG-Modelling
@@ -95,111 +107,10 @@ has_devel()
 sample <- data5[sample(nrow(data5), 3000), ]
 dim(sample)
 
-
-# Import SNP data
-geno<- read.table(file = "snpref-isi.txt", header = FALSE)
-head(geno)
-dim(geno)
-colnames(geno)[1]
-summary(geno$V1)
-names(geno)[1] <- "cow"
-
-#In GBLUP we can only work with genotyped animals - non-genotyped animals will be removed (see later),
-
-# hence we will encode genotyped animals as 1:n
-
-geno$IId <- 1:nrow(geno)
-
-# Remove phenotypes for animals that are not genotyped
-# (I am assuming that geno and pheno data.frames have Id columns
-sel <- pheno$cow %in% geno$cow
-pheno <- pheno[sel, ]
-
-# Recode phenotyped animals into 1:n according to geno 1:n codes
-sel <- match(pheno$cow, table = geno$cow)
-
-pheno$IId <- geno$IId[sel]
-
-# Save geno$cow and geno$IId as backup
-genocow_IId <- subset(geno,select= c(IId,cow))
-write.table(genocow_IId,"genocow_IId.txt")
-# Remove old genoid
-
-geno<- subset(geno,select= -c(cow))
-
-#Make IId (last column as first)
-geno <- geno[,c(ncol(geno),1:(ncol(geno)-1))]
-
-
-head(geno, n=2)
-head(pheno, n=2)
-
-tail(geno, n=2)
-tail(pheno,n=2)
-
-#save pheno and geno
-write.table(pheno, "pheno.txt",
-            quote = FALSE, row.names = FALSE, col.names = TRUE, sep = " ")
-write.table(geno, "geno.txt",
-            quote = FALSE, row.names = FALSE, col.names = FALSE, sep = " ")
-rm(pheno)
-
-# write.csv(SNP_ID,"/Users/Lenovo/OneDrive/Documents/adgg/SNP.csv")
-###########################################################################################################################################################
-# Import G matrix and make it a full matrix (Ginv2)
-Ginv = data.frame(read.table("GLinv.txt", header = FALSE))
-names(Ginv) = list("var1", "var2", "value")
-dimension = max(Ginv[,1])
-Ginv2 = matrix(0, nrow = dimension, ncol = dimension)
-
-Ginv2[as.matrix(Ginv[c("var1", "var2")])] = Ginv[["value"]]
-Ginv2[as.matrix(Ginv[c("var2", "var1")])] = Ginv[["value"]]
-dim(Ginv2)
-
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Create INLA graph for Besag model
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-# Mapping my data6 to Tanzania map to get ward_code
-#Let's remove first old ward_code and region_cod
-mapwa = readOGR("/Users/Lenovo/OneDrive/Documents/adgg/TZwards.shp")
-plot(mapwa)
-data_wa=pheno
-coordinates(data_wa) = ~long+lat # Cordinates are in columns long and lat
 
-
-projection(mapwa) = CRS("+proj=longlat +datum=WGS84")
-projection(data_wa) = CRS("+proj=longlat +datum=WGS84")# Map of my data using same projection(language)
-
-# same results if that's how projection is defined
-#proj4string(data) = CRS("+proj=longlat +a=6378249.145 +rf=293.465 +no_defs +type=crs")
-#projection(mapwa)=CRS("+proj=longlat +a=6378249.145 +rf=293.465 +no_defs +type=crs")
-
-return = over(geometry(data_wa), mapwa, returnList = F) # returnList = F gives dataframe instead list
-head(return)
-return
-head(return)
-#library(reshape2) # Reshape the dataframe
-pheno$ward_code2 <- return$Ward_Code
-data6$Region_Cod <- return$Region_Cod
-data6$District_C <- return$District_C
-head(pheno)
-length(unique(pheno$ward_code2))#72
-length(unique(pheno$ward)) #156
-length(unique(pheno$District_C)) #9 districts
-length(unique(pheno$Region_Cod)) # 6 Regions
-# Importing map ward Tanzania
-mapwa2 <- st_read("/Users/Lenovo/OneDrive/Documents/adgg/TZwards.shp", quiet = TRUE)
-class(mapwa2) # class sf
-head(mapwa2)
-
-# construct graph of neighbours (Library INLA)
-library(spdep) # To identify if two regions are neighbours
-#remotes::install_github("r-spatial/s2")
-library(s2)
-sf_use_s2(FALSE)
-
-nb.mapwa2 <- poly2nb(mapwa2)# Look at map and tell neighbours
-nb2INLA("map.graphwa2",nb.mapwa2)
 gwa <- inla.read.graph(filename = "map.graphwa2") # Lines 150 and 151 run together
 
 #-------------------------------------------------------------------------------
