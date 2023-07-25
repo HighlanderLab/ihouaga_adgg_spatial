@@ -58,16 +58,33 @@ data1 <- data1 %>%
             .funs = as.factor)
 str(data1)
 
-# Read in the Besag TODO
+# TODO: check if it is OK for these variables to be a factor
+#       * herd
+#       * cow
+#       * ward_code
+
+# Create permanent environment indicator column
+data1$cowPe <- data1$cow
+
+# Read in the regional data for Besag model
 nb.map <- inla.read.graph(filename = "data/cleaned_data/ward_neighbours.txt")
+load(file = "data/cleaned_data/ward_neighbours_precision_matrix.RData")
+# this will load nb.matrix and nb.matrixScaled
 
-nb.matrix, nb.matrixScaled
-"data/cleaned_data/ward_neighbours_precision_matrix.RData"
+# Read in the genomic relationship matrix
+load(file = "data/cleaned_data/GRMInv.RData")
 
-# Read in the genomic relationship matrix TODO
-load(file = "data/cleaned_data/GRM.RData")
+# ---- Specify models ----------------------------------------------------------
 
+TODO: implement model expansion
+* base model for milk
+modelBase <- milk ~ 1 + effects_present_in_all_models
 
+* base model for milk_corrected
+???
+
+* expand the base with different effect
+modelG <- modelBase + some_effect
 
 
 #===========================================================================================================================================================
@@ -108,33 +125,33 @@ sample <- data5[sample(nrow(data5), 3000), ]
 dim(sample)
 
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-# Create INLA graph for Besag model
-#-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-gwa <- inla.read.graph(filename = "map.graphwa2") # Lines 150 and 151 run together
-
-#-------------------------------------------------------------------------------
-pheno$cowPe <- pheno$IId
 
 # Base model G
-G <- milk ~ 1 + cyrsn + tyrmn + dgrp + (age|lacgr) + (intercept|lacgr) + (leg1|lacgr) +(leg2|lacgr)+ f(herd, model = 'iid') + f(cowPe, model = 'iid') + f(IId, model = "generic0", Cmatrix = Ginv2)
+G <- milk ~ 1 + cyrsn + tyrmn + dgrp + (age|lacgr) + (leg0|lacgr) + (leg1|lacgr) + (leg2|lacgr) + f(herd, model = 'iid') + f(cowPe, model = 'iid') + f(IId, model = "generic0", Cmatrix = Ginv2)
 
-YDG <- milk ~ 1 + cyrsn + tyrmn + dgrp + (age|lacgr) + (intercept|lacgr) + (leg1|lacgr) +(leg2|lacgr) + f(cowPe, model = 'iid')
+YDG <- milk ~ 1 + cyrsn + tyrmn + dgrp + (age|lacgr) + (leg0|lacgr) + (leg1|lacgr) +(leg2|lacgr) + f(cowPe, model = 'iid')
 YDG# Corrected phenotype (Yield deviation) for model G
 # Alternative models
 
-G1 <- milk ~ 1 + ward_code +cyrsn + tyrmn + dgrp + (age|lacgr) + (intercept|lacgr) + (leg1|lacgr) +(leg2|lacgr)+ f(herd, model = 'iid') + f(cowPe, model = 'iid') + f(IId, model = "generic0", Cmatrix = Ginv2)
+# G + ward_code as fixed
+G1 <- milk ~ 1 + ward_code + cyrsn + tyrmn + dgrp + (age|lacgr) + (leg0|lacgr) + (leg1|lacgr) +(leg2|lacgr)+ f(herd, model = 'iid') + f(cowPe, model = 'iid') + f(IId, model = "generic0", Cmatrix = Ginv2)
 
-YDG1<- milk ~ 1 + ward_code +cyrsn + tyrmn + dgrp + (age|lacgr) + (intercept|lacgr) + (leg1|lacgr) +(leg2|lacgr) + f(cowPe, model = 'iid')
+YDG1 <- milk ~ 1 + ward_code +cyrsn + tyrmn + dgrp + (age|lacgr) + (leg0|lacgr) + (leg1|lacgr) +(leg2|lacgr) + f(cowPe, model = 'iid')
  YDG1 # Corrected phenotype (Yield deviation) for model G1
-G2 <- milk ~ 1 + cyrsn + tyrmn + dgrp + (age|lacgr) + (intercept|lacgr) + (leg1|lacgr) +(leg2|lacgr)+ f(herd, model = 'iid') + f(ward_code, model = 'iid') + f(cowPe, model = 'iid') + f(IId, model = "generic0", Cmatrix = Ginv2)
 
-YDG2 <-milk ~ 1 + cyrsn + tyrmn + dgrp + (age|lacgr) + (intercept|lacgr) + (leg1|lacgr) +(leg2|lacgr) + f(ward_code, model = 'iid') + f(cowPe, model = 'iid')
+# G + ward_code as random iid
+G2 <- milk ~ 1 + cyrsn + tyrmn + dgrp + (age|lacgr) + (leg0|lacgr) + (leg1|lacgr) +(leg2|lacgr)+ f(herd, model = 'iid') + f(ward_code, model = 'iid') + f(cowPe, model = 'iid') + f(IId, model = "generic0", Cmatrix = Ginv2)
+
+YDG2 <-milk ~ 1 + cyrsn + tyrmn + dgrp + (age|lacgr) + (leg0|lacgr) + (leg1|lacgr) +(leg2|lacgr) + f(ward_code, model = 'iid') + f(cowPe, model = 'iid')
 YDG2 # Corrected phenotype (Yield deviation) for model G2
-G3<- milk ~ 1 + cyrsn + tyrmn + dgrp + (age|lacgr) + (intercept|lacgr) + (leg1|lacgr) +(leg2|lacgr)+ f(herd, model = 'iid') + f(cowPe, model = 'iid') + f(IId, model = "generic0", Cmatrix = Ginv2) +  f(ward_code, model = "besag", graph = gwa, scale.model = TRUE)
+
+# G + ward_code as random besag
+G3<- milk ~ 1 + cyrsn + tyrmn + dgrp + (age|lacgr) + (leg0|lacgr) + (leg1|lacgr) +(leg2|lacgr)+ f(herd, model = 'iid') + f(cowPe, model = 'iid') + f(IId, model = "generic0", Cmatrix = Ginv2) +  f(ward_code, model = "besag", graph = gwa, scale.model = TRUE)
 # G3 is the Besag model
-YDG3<- milk ~ 1 + cyrsn + tyrmn + dgrp + (age|lacgr) + (intercept|lacgr) + (leg1|lacgr) +(leg2|lacgr) + f(cowPe, model = 'iid') + f(ward_code, model = "besag", graph = gwa, scale.model = TRUE)
+YDG3<- milk ~ 1 + cyrsn + tyrmn + dgrp + (age|lacgr) + (leg0|lacgr) + (leg1|lacgr) +(leg2|lacgr) + f(cowPe, model = 'iid') + f(ward_code, model = "besag", graph = gwa, scale.model = TRUE)
 YDG3 # Corrected phenotype (Yield deviation) for model G3
+
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Model G
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -293,7 +310,7 @@ inla.zmarginal(marg.varianceG3_residual)
 #------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #ACCURACY MODEL G (ALL ANIMALS)
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-YDG <- milk ~ 1 + cyrsn + tyrmn + dgrp + (age|lacgr) + (intercept|lacgr) + (leg1|lacgr) +(leg2|lacgr) + f(cowPe, model = 'iid')
+YDG <- milk ~ 1 + cyrsn + tyrmn + dgrp + (age|lacgr) + (leg0|lacgr) + (leg1|lacgr) +(leg2|lacgr) + f(cowPe, model = 'iid')
 modelYDG<- inla(formula = YDG,  control.compute = list(dic = TRUE), data=pheno)
 YDG <- data.frame(modelYDG$summary.random$cowPe)
 YDG <- subset(YDG, select= c(ID,mean))
@@ -317,7 +334,7 @@ summary(Coef) # R2=0.572 (overstimation)
 #------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #ACCURACY MODEL G1 (ALL ANIMALS)
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-YDG1<- milk ~ 1 + ward_code +cyrsn + tyrmn + dgrp + (age|lacgr) + (intercept|lacgr) + (leg1|lacgr) +(leg2|lacgr) + f(cowPe, model = 'iid')
+YDG1<- milk ~ 1 + ward_code +cyrsn + tyrmn + dgrp + (age|lacgr) + (leg0|lacgr) + (leg1|lacgr) +(leg2|lacgr) + f(cowPe, model = 'iid')
 modelYDG1<- inla(formula = YDG1,  control.compute = list(dic = TRUE), data=pheno)
 YDG1 <- data.frame(modelYDG1$summary.random$cowPe)
 YDG1 <- subset(YDG1, select= c(ID,mean))
@@ -341,7 +358,7 @@ summary(Coef1) # R2= 0.572 (Overstimation)
 #------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #ACCURACY MODEL G2 (ALL ANIMALS)
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-YDG2 <-milk ~ 1 + cyrsn + tyrmn + dgrp + (age|lacgr) + (intercept|lacgr) + (leg1|lacgr) +(leg2|lacgr) + f(ward_code, model = 'iid') + f(cowPe, model = 'iid')
+YDG2 <-milk ~ 1 + cyrsn + tyrmn + dgrp + (age|lacgr) + (leg0|lacgr) + (leg1|lacgr) +(leg2|lacgr) + f(ward_code, model = 'iid') + f(cowPe, model = 'iid')
 modelYDG2<- inla(formula = YDG2,  control.compute = list(dic = TRUE), data=pheno)
 YDG2 <- data.frame(modelYDG2$summary.random$cowPe)
 YDG2 <- subset(YDG2, select= c(ID,mean))
@@ -367,7 +384,7 @@ summary(Coef2) # R2=0.6978 (Overstimation)
 #------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #ACCURACY MODEL G3 (ALL ANIMALS)
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-YDG3<- milk ~ 1 + cyrsn + tyrmn + dgrp + (age|lacgr) + (intercept|lacgr) + (leg1|lacgr) +(leg2|lacgr) + f(cowPe, model = 'iid') + f(ward_code, model = "besag", graph = gwa, scale.model = TRUE)
+YDG3<- milk ~ 1 + cyrsn + tyrmn + dgrp + (age|lacgr) + (leg0|lacgr) + (leg1|lacgr) + (leg2|lacgr) + f(cowPe, model = 'iid') + f(ward_code, model = "besag", graph = gwa, scale.model = TRUE)
 modelYDG3<- inla(formula = YDG3,  control.compute = list(dic = TRUE), data=pheno)
 YDG3 <- data.frame(modelYDG3$summary.random$cowPe)
 YDG3 <- subset(YDG3, select= c(ID,mean))
