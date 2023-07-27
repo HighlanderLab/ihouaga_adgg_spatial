@@ -38,7 +38,7 @@ if (FALSE) {
   inla.upgrade(testing = TRUE)
 }
 library(tidyverse)
-library(INLA)
+library(INLA) # TODO change to inlabru and add inlabrue estimation above
 
 (.packages()) # Check loaded packages
 
@@ -54,17 +54,15 @@ str(data1)
 # Factors
 data1 <- data1 %>%
   mutate_at(.vars = c("cow", "ward", "herd", "cyrsn", "tyrmn", "dgrp", "lac",
-                      "ward_code", "region"),
+                      "lacgr", "ward_code", "region"),
             .funs = as.factor)
 str(data1)
 
-# TODO: check if it is OK for these variables to be a factor
-#       * herd
-#       * cow
-#       * ward_code
-
-# Create permanent environment indicator column
-data1$cowPe <- data1$cow
+data1$herdI <- as.numeric(data1$herd) # these codes will now be 1:n
+data1$ward_codeI <- as.numeric(data1$ward_code) # these codes will now be 1:n
+data1$cowPe <- data1$cow # cow permanent environment
+data1$cowPeI <- as.numeric(data1$cowPe) # these codes will now be 1:n
+# data1$cowI <- as.numeric(data1$????) # see below!
 
 # Read in the regional data for Besag model
 nb.map <- inla.read.graph(filename = "data/cleaned_data/ward_neighbours.txt")
@@ -73,19 +71,39 @@ load(file = "data/cleaned_data/ward_neighbours_precision_matrix.RData")
 
 # Read in the genomic relationship matrix
 load(file = "data/cleaned_data/GRMInv.RData")
+str(GRMInv)
+
+# Now we can code the cows in pheno data correctly
+data1$cow <- factor(data1$cow, levels = 1:nrow(GRMInv))
+summary(as.numeric(levels(data1$cow))) # we need 1:1911 numbers here!
+data1$cowI <- as.numeric(as.character(data1$cow))
+summary(data1$cowI) # we have 1:1906 ids here
+head(data1)
+tail(data1)
+# TODO double check that the above cowI is correct (GG thinks it is )
 
 # ---- Specify models ----------------------------------------------------------
 
-TODO: implement model expansion
-* base model for milk
-modelBase <- milk ~ 1 + effects_present_in_all_models
+# Base model for milk - just the fixed effects
+modelBase <- "milk ~ cyrsn + tyrmn + dgrp + (age|lacgr) + (leg0|lacgr) + (leg1|lacgr) + (leg2|lacgr) + f(herdI, model = 'iid') + f(cowPeI, model = 'iid') + f(cowI, model = 'generic0', Cmatrix = GRMInv)"
 
-* base model for milk_corrected
-???
+# Adding ward_code as a fixed effect
+modelWCF <- as.formula(paste0(modelBase, " + ward_code"))
 
-* expand the base with different effect
-modelG <- modelBase + some_effect
+# Adding ward_code as a random IID effect
+modelWCRI <- as.formula(paste0(modelBase, " + f(ward_codeI, model = 'iid')"))
 
+# Adding ward_code as a random Besag effect
+modelWCRB <- as.formula(paste0(modelBase, " + f(ward_codeI, model = 'Besag', graph = nb.map, scale.model = TRUE)"))
+
+# * base model for milk_corrected
+# ???
+
+# ---- Run the models ----------------------------------------------------------
+
+fitWCF <- inla(formula = modelWCF, data = data1,
+               control.compute = list(dic = TRUE))
+summary(fitWCF)
 
 #===========================================================================================================================================================
 # ADGG-Modelling
