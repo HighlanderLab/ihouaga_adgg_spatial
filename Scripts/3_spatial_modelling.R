@@ -82,10 +82,25 @@ head(data1)
 tail(data1)
 # TODO double check that the above cowI is correct (GG thinks it is )
 
+# Standardise response variable and covariates
+# ... INLA uses priors so best to be on the O(1) scale
+data1$milkZ <- scale(data1$milk)
+data1$ageZ <- scale(data1$age)
+
+summary(data1$milk)
+summary(data1$milkZ)
+
+summary(data1$age)
+summary(data1$ageZ)
+
+summary(data1$leg0)
+summary(data1$leg1)
+summary(data1$leg2)
+
 # ---- Specify models ----------------------------------------------------------
 
 # Base model for milk - just the fixed effects
-modelBase <- "milk ~ cyrsn + tyrmn + dgrp + (age|lacgr) + (leg0|lacgr) + (leg1|lacgr) + (leg2|lacgr) + f(herdI, model = 'iid') + f(cowPeI, model = 'iid') + f(cowI, model = 'generic0', Cmatrix = GRMInv)"
+modelBase <- "milkZ ~ cyrsn + tyrmn + dgrp + (ageZ|lacgr) + (leg0|lacgr) + (leg1|lacgr) + (leg2|lacgr) + f(herdI, model = 'iid') + f(cowPeI, model = 'iid') + f(cowI, model = 'generic0', Cmatrix = GRMInv)"
 
 # Adding ward_code as a fixed effect
 modelWCF <- as.formula(paste0(modelBase, " + ward_code"))
@@ -103,7 +118,12 @@ modelWCRB <- as.formula(paste0(modelBase, " + f(ward_codeI, model = 'Besag', gra
 
 fitWCF <- inla(formula = modelWCF, data = data1,
                control.compute = list(dic = TRUE))
-summary(fitWCF)
+(tmp <- summary(fitWCF))
+tmp2 <- 1 / tmp$hyperpar$mode
+names(tmp2) <- sub(x = rownames(tmp$hyperpar),
+                   pattern = "Precision",
+                   replacement = "Variance")
+tmp2
 
 #===========================================================================================================================================================
 # ADGG-Modelling
