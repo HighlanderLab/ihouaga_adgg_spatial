@@ -10,7 +10,8 @@
 
 # Working directory
 # ... Isidore's laptop
-baseDir <- ""
+baseDir <- "C:/Users/Lenovo/OneDrive/Documents/ihouaga_adgg_spatial"
+getwd()
 # ... Isidore's Eddie workspace
 baseDir <- ""
 
@@ -57,7 +58,7 @@ data1 <- data1 %>%
                       "lacgr", "ward_code", "region"),
             .funs = as.factor)
 str(data1)
-
+summary(data1$herdI)
 data1$herdI <- as.numeric(data1$herd) # these codes will now be 1:n
 data1$ward_codeI <- as.numeric(data1$ward_code) # these codes will now be 1:n
 data1$cowPe <- data1$cow # cow permanent environment
@@ -72,7 +73,8 @@ load(file = "data/cleaned_data/ward_neighbours_precision_matrix.RData")
 # Read in the genomic relationship matrix
 load(file = "data/cleaned_data/GRMInv.RData")
 str(GRMInv)
-
+dim(GRMInv) # 1911 x 1911
+class(GRMInv)
 # Now we can code the cows in pheno data correctly
 data1$cow <- factor(data1$cow, levels = 1:nrow(GRMInv))
 summary(as.numeric(levels(data1$cow))) # we need 1:1911 numbers here!
@@ -99,31 +101,115 @@ summary(data1$leg2)
 
 # ---- Specify models ----------------------------------------------------------
 
-# Base model for milk - just the fixed effects
-modelBase <- "milkZ ~ cyrsn + tyrmn + dgrp + (ageZ|lacgr) + (leg0|lacgr) + (leg1|lacgr) + (leg2|lacgr) + f(herdI, model = 'iid') + f(cowPeI, model = 'iid') + f(cowI, model = 'generic0', Cmatrix = GRMInv)"
+# Base model for milk - All effects without ward_codeI 
+modelBase <- "milkZ ~ 1 + cyrsn + tyrmn + dgrp + (ageZ|lacgr) + (leg0|lacgr) + (leg1|lacgr) + (leg2|lacgr) + f(herdI, model = 'iid') + f(cowPeI, model = 'iid') + f(cowI, model = 'generic0', Cmatrix = GRMInv)"
 
-# Adding ward_code as a fixed effect
-modelWCF <- as.formula(paste0(modelBase, " + ward_code"))
+# Adding ward_codeI as a fixed effect
+modelWCF <- as.formula(paste0(modelBase, " + ward_codeI"))
 
-# Adding ward_code as a random IID effect
+# Adding ward_codeI as a random IID effect
 modelWCRI <- as.formula(paste0(modelBase, " + f(ward_codeI, model = 'iid')"))
 
-# Adding ward_code as a random Besag effect
-modelWCRB <- as.formula(paste0(modelBase, " + f(ward_codeI, model = 'Besag', graph = nb.map, scale.model = TRUE)"))
+# Adding ward_codeI as a random Besag effect
+modelWCRB <- as.formula(paste0(modelBase, " + f(ward_codeI, model = 'besag', graph = nb.map, scale.model = TRUE)"))
 
 # * base model for milk_corrected
-# ???
+modelBase_milk_corrected <- "milkZ ~ 1 + cyrsn + tyrmn + dgrp + (ageZ|lacgr) + (leg0|lacgr) + (leg1|lacgr) + (leg2|lacgr) + f(cowPeI, model = 'iid')" # Milk corrected for all the fixed effects + cowPeI as in Mrode et al.2021
+
+# * model for milk_corrected: Adding ward_code as a fixed effect
+modelWCF_milk_corrected <- as.formula(paste0(modelBase_milk_corrected, " + ward_codeI"))
+
+# * model for milk_corrected: Adding ward_code as a random IID effect
+modelWCRI_milk_corrected <- as.formula(paste0(modelBase_milk_corrected, " + f(ward_codeI, model = 'iid')"))
+
+# * model for milk_corrected: Adding ward_code as a random Besag effect
+modelWCRB_milk_corrected <- as.formula(paste0(modelBase_milk_corrected, " + f(ward_codeI, model = 'besag', graph = nb.map, scale.model = TRUE)"))
 
 # ---- Run the models ----------------------------------------------------------
-
+# *fitWCF
 fitWCF <- inla(formula = modelWCF, data = data1,
                control.compute = list(dic = TRUE))
 (tmp <- summary(fitWCF))
-tmp2 <- 1 / tmp$hyperpar$mode
+tmp2 <- 1 / tmp$hyperpar$mean
 names(tmp2) <- sub(x = rownames(tmp$hyperpar),
                    pattern = "Precision",
                    replacement = "Variance")
 tmp2
+
+# fitWCRI
+fitWCRI <- inla(formula = modelWCRI, data = data1,
+               control.compute = list(dic = TRUE))
+(tmp <- summary(fitWCRI))
+tmp2 <- 1 / tmp$hyperpar$mean
+names(tmp2) <- sub(x = rownames(tmp$hyperpar),
+                   pattern = "Precision",
+                   replacement = "Variance")
+tmp2
+
+# fitWCRB
+fitWCRB <- inla(formula = modelWCRB, data = data1,
+               control.compute = list(dic = TRUE))
+(tmp <- summary(fitWCRB))
+tmp2 <- 1 / tmp$hyperpar$mean
+names(tmp2) <- sub(x = rownames(tmp$hyperpar),
+                   pattern = "Precision",
+                   replacement = "Variance")
+tmp2
+
+# *fitWCF_milk_corrected
+fitWCF_milk_corrected<- inla(formula = modelWCF_milk_corrected, data = data1,
+               control.compute = list(dic = TRUE))
+(tmp <- summary(fitWCF_milk_corrected))
+tmp2 <- 1 / tmp$hyperpar$mean
+names(tmp2) <- sub(x = rownames(tmp$hyperpar),
+                   pattern = "Precision",
+                   replacement = "Variance")
+tmp2
+
+# fitWCRI_milk_corrected
+fitWCRI_milk_corrected <- inla(formula = modelWCRI_milk_corrected, data = data1,
+                control.compute = list(dic = TRUE))
+(tmp <- summary(fitWCRI_milk_corrected))
+tmp2 <- 1 / tmp$hyperpar$mean
+names(tmp2) <- sub(x = rownames(tmp$hyperpar),
+                   pattern = "Precision",
+                   replacement = "Variance")
+tmp2
+
+# fitWCRB_milk_corrected
+fitWCRB_milk_corrected <- inla(formula = modelWCRB_milk_corrected, data = data1,
+                control.compute = list(dic = TRUE))
+(tmp <- summary(fitWCRB_milk_corrected))
+tmp2 <- 1 / tmp$hyperpar$mean
+names(tmp2) <- sub(x = rownames(tmp$hyperpar),
+                   pattern = "Precision",
+                   replacement = "Variance")
+tmp2
+
+# -------SPDE-------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #===========================================================================================================================================================
 # ADGG-Modelling
