@@ -1,3 +1,5 @@
 This file contains notes and links to useful resources and tutorials.
 
 https://sites.google.com/inlabru.org/inlabru/home (INLAbru package)
+
+In INLA we fit fixed effect as factor (ward_code) and random effect as integer (ward_codeI) 
