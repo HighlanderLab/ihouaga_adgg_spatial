@@ -104,8 +104,8 @@ summary(data1$leg2)
 # Base model for milk - All effects without ward_codeI 
 modelBase <- "milkZ ~ 1 + cyrsn + tyrmn + dgrp + (ageZ|lacgr) + (leg0|lacgr) + (leg1|lacgr) + (leg2|lacgr) + f(herdI, model = 'iid') + f(cowPeI, model = 'iid') + f(cowI, model = 'generic0', Cmatrix = GRMInv)"
 
-# Adding ward_codeI as a fixed effect
-modelWCF <- as.formula(paste0(modelBase, " + ward_codeI"))
+# Adding ward_code as a fixed effect
+modelWCF <- as.formula(paste0(modelBase, " + ward_code"))
 
 # Adding ward_codeI as a random IID effect
 modelWCRI <- as.formula(paste0(modelBase, " + f(ward_codeI, model = 'iid')"))
@@ -126,17 +126,52 @@ modelWCRI_milk_corrected <- as.formula(paste0(modelBase_milk_corrected, " + f(wa
 modelWCRB_milk_corrected <- as.formula(paste0(modelBase_milk_corrected, " + f(ward_codeI, model = 'besag', graph = nb.map, scale.model = TRUE)"))
 
 # ---- Run the models ----------------------------------------------------------
+
 # *fitWCF
+sink('results/fitWCF.txt') # Print outputs of fitWCF
+
 fitWCF <- inla(formula = modelWCF, data = data1,
                control.compute = list(dic = TRUE))
-(tmp <- summary(fitWCF))
-tmp2 <- 1 / tmp$hyperpar$mean
-names(tmp2) <- sub(x = rownames(tmp$hyperpar),
-                   pattern = "Precision",
-                   replacement = "Variance")
-tmp2
+'fitWCF'
+summary(fitWCF)
+# herd variance (fitWCF)
+herd_var <- inla.tmarginal(function(x) 1/x,
+                                      fitWCF$marginals.hyperpar$`Precision for herdI`)
+'herd variance'
+herd_var2<- inla.zmarginal(herd_var)
 
-# fitWCRI
+# cowI variance (fitWCF)
+cowI_var <- inla.tmarginal(function(x) 1/x,
+                                     fitWCF$marginals.hyperpar$`Precision for cowI`)
+'cow additive genetic variance'
+cowI_var2 <- inla.zmarginal(cowI_var)
+       
+#cowPeI variance (fitWCF)
+cowPeI_var <- inla.tmarginal(function(x) 1/x,
+                                       fitWCF$marginals.hyperpar$`Precision for cowPeI`)
+'Permanent environment effect'
+cowPeI_var2 <- inla.zmarginal(cowPeI_var)
+
+
+# Residual variance  (fitWCF)
+
+residual_var <- inla.tmarginal(function(x) 1/x,
+                                          fitWCF$marginals.hyperpar$`Precision for the Gaussian observations`)
+'Residual variance'
+residual_var2 <- inla.zmarginal(residual_var)
+
+# Phenotype variance (fitWCF)
+Phenovar_fitWCF <- herd_var + cowI_var + cowPeI_var + residual_var
+'phenotypic variance'
+Phenovar_fitWCF2<- inla.zmarginal(Phenovar_fitWCF)
+sink() # close sink fitWCF
+
+#@gg I believe there should be a way to display all the marginal variances as in the initial code
+
+# fitWCRI 
+
+sink('results/fitWCRI.txt') #Print outputs of fitWCRI
+'fitWCRI'
 fitWCRI <- inla(formula = modelWCRI, data = data1,
                control.compute = list(dic = TRUE))
 (tmp <- summary(fitWCRI))
@@ -145,8 +180,10 @@ names(tmp2) <- sub(x = rownames(tmp$hyperpar),
                    pattern = "Precision",
                    replacement = "Variance")
 tmp2
+sink() # close sink
 
 # fitWCRB
+sink('results/fitWCRB.txt') #Print outputs of fitWCRB
 fitWCRB <- inla(formula = modelWCRB, data = data1,
                control.compute = list(dic = TRUE))
 (tmp <- summary(fitWCRB))
@@ -155,6 +192,8 @@ names(tmp2) <- sub(x = rownames(tmp$hyperpar),
                    pattern = "Precision",
                    replacement = "Variance")
 tmp2
+
+sink() # close sink fitWCRB
 
 # *fitWCF_milk_corrected
 fitWCF_milk_corrected<- inla(formula = modelWCF_milk_corrected, data = data1,
