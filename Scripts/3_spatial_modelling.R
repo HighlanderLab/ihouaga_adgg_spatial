@@ -1,5 +1,4 @@
 # ---- Header ------------------------------------------------------------------
-
 # Spatial modeling
 # Trait: Test day milk yield
 # Author: Isidore
@@ -42,6 +41,7 @@ library(tidyverse)
 library(INLA) # TODO change to inlabru and add inlabrue estimation above
 
 (.packages()) # Check loaded packages
+
 
 # ---- Import data -------------------------------------------------------------
 
@@ -113,6 +113,176 @@ modelWCRI <- as.formula(paste0(modelBase, " + f(ward_codeI, model = 'iid')"))
 # Adding ward_codeI as a random Besag effect
 modelWCRB <- as.formula(paste0(modelBase, " + f(ward_codeI, model = 'besag', graph = nb.map, scale.model = TRUE)"))
 
+# ---- Run the models ----------------------------------------------------------
+
+# *fitWCF
+sink('results/fitWCF.txt') # Print outputs of fitWCF
+'fitWCF'
+fitWCF <- inla(formula = modelWCF, data = data1,
+               control.compute = list(dic = TRUE,config=TRUE))
+summary(fitWCF)
+
+# Create a function to summarise precision to variance 
+
+SummarizeFun = function(x, Quantiles = c(0.025, 0.975)) {
+  c(mean(x), sd(x), quantile(x, probs = Quantiles))
+}
+
+summarise_precision_to_variance = function(x, nSamples = 1000) {
+  # Summarize INLA effects "precisions" in form of Standard deviations, Variances, and Proportions (var / sum(all vars))
+  Terms = names(x$marginals.hyperpar)
+  Terms = Terms[grepl(pattern = "Precision for ", x = Terms)]
+  TermsShort = sub(pattern = "Precision for ", replacement = "", x = Terms)
+  TermsShort = sub(pattern = "the ",           replacement = "", x = TermsShort)
+  nTerms = length(Terms)
+  Samples = matrix(data = numeric(), nrow = nSamples, ncol = nTerms + 1)
+  Out = vector(mode = "list", length = 3)
+  names(Out) = c("Sd", "Var", "Proportion")
+  Out[[1]] = Out[[2]] = Out[[3]] = matrix(data = numeric(), nrow = nTerms + 1, ncol = 4)
+  dimnames(Out[[1]]) = dimnames(Out[[2]]) = dimnames(Out[[3]]) = list(c(TermsShort, "Total"), c("Mean", "Sd", "Q0.025", "Q0.975"))
+  for (Term in 1:nTerms) {
+    # Term = 3
+    Samples[, Term] = 1 / inla.rmarginal(n = nSamples, marginal = x$marginals.hyperpar[[Terms[Term]]])
+  }
+  Samples[, Term + 1] = rowSums(x = Samples[, 1:nTerms, drop = FALSE])
+  Out$Var[]        = t(apply(X = Samples,                         MARGIN = 2, FUN = SummarizeFun))
+  Out$Sd[]         = t(apply(X = sqrt(Samples),                   MARGIN = 2, FUN = SummarizeFun))
+  Out$Proportion[] = t(apply(X = Samples / Samples[, nTerms + 1], MARGIN = 2, FUN = SummarizeFun))
+  return(Out)
+}
+summarise_precision_to_variance(fitWCF)
+sink()
+
+# fitWCRI
+
+sink('results/fitWCRI.txt') #Print outputs of fitWCRI
+'fitWCRI'
+fitWCRI <- inla(formula = modelWCRI, data = data1,
+               control.compute = list(dic = TRUE, config=TRUE))
+summarise_precision_to_variance(fitWCRI)
+sink() 
+
+# fitWCRB
+'fitWCRB'
+sink('results/fitWCRB.txt') #Print outputs of fitWCRB
+fitWCRB <- inla(formula = modelWCRB, data = data1,
+               control.compute = list(dic = TRUE, config=TRUE))
+summarise_precision_to_variance(fitWCRB)
+sink() # close sink fitWCRB
+
+#----------Plot posterior distributions of hyperparameters for all models--------
+
+# Genetic variance
+# * fitWCF
+ggplot(data.frame(inla.smarginal(inla.tmarginal(function(x) 1/x,
+                                                fitWCF$marginals.hyperpar$`Precision for cowI`))), aes(x, y)) +
+  geom_line() +
+  theme_bw()
+
+# * fitWCRI
+ggplot(data.frame(inla.smarginal(inla.tmarginal(function(x) 1/x,
+                                                fitWCRI$marginals.hyperpar$`Precision for cowI`))), aes(x, y)) +
+  geom_line() +
+  theme_bw()
+
+# * fitWCRB
+ggplot(data.frame(inla.smarginal(inla.tmarginal(function(x) 1/x,
+                                                fitWCRB$marginals.hyperpar$`Precision for cowI`))), aes(x, y)) +
+  geom_line() +
+  theme_bw()
+
+#TO DO: Plot posterior distribution of all models in a single graph for genetic effect
+
+
+# Residual variance 
+# * fitWCF
+ggplot(data.frame(inla.smarginal(inla.tmarginal(function(x) 1/x,
+                                                fitWCF$marginals.hyperpar$`Precision for the Gaussian observations`))), aes(x, y)) +
+  geom_line() +
+  theme_bw()
+
+# * fitWCRI
+ggplot(data.frame(inla.smarginal(inla.tmarginal(function(x) 1/x,
+                                                fitWCRI$marginals.hyperpar$`Precision for the Gaussian observations`))), aes(x, y)) +
+  geom_line() +
+  theme_bw()
+
+# * fitWCRB
+ggplot(data.frame(inla.smarginal(inla.tmarginal(function(x) 1/x,
+                                                fitWCRB$marginals.hyperpar$`Precision for the Gaussian observations`))), aes(x, y)) +
+  geom_line() +
+  theme_bw()
+#TO DO: Plot posterior distributions of all models in a single graph for residual variance
+
+# Herd_Variance 
+
+# * fitWCF
+ggplot(data.frame(inla.smarginal(inla.tmarginal(function(x) 1/x,
+                                                fitWCF$marginals.hyperpar$`Precision for herdI`))), aes(x, y)) +
+  geom_line() +
+  theme_bw()
+
+# * fitWCRI
+ggplot(data.frame(inla.smarginal(inla.tmarginal(function(x) 1/x,
+                                                fitWCRI$marginals.hyperpar$`Precision for herdI`))), aes(x, y)) +
+  geom_line() +
+  theme_bw()
+
+# * fitWCRB
+ggplot(data.frame(inla.smarginal(inla.tmarginal(function(x) 1/x,
+                                                fitWCRB$marginals.hyperpar$`Precision for herdI`))), aes(x, y)) +
+  geom_line() +
+  theme_bw()
+
+#TO DO: Plot posterior distributions of all models in a single graph for herd effect
+
+# Ward_variance (fitWCRI and fitWCRB)
+
+# * fitWCRI
+ggplot(data.frame(inla.smarginal(inla.tmarginal(function(x) 1/x,
+                                                fitWCRI$marginals.hyperpar$`Precision for ward_codeI`))), aes(x, y)) +
+  geom_line() +
+  theme_bw()
+
+# * fitWCRB
+ggplot(data.frame(inla.smarginal(inla.tmarginal(function(x) 1/x,
+                                                fitWCRB$marginals.hyperpar$`Precision for ward_codeI`))), aes(x, y)) +
+  geom_line() +
+  theme_bw()
+#TO DO: Plot posterior distributions of all models in a single graph for ward effect
+
+
+# -------SPDE-------------------------------------------------------------------
+# Setting up a mesh
+Locations = cbind(data1$long, data1$lat)# using the sampling locations 
+
+MeshA <- inla.mesh.2d(jitter(Locations), max.edge = c(10, 20))
+MeshB <- inla.mesh.2d(Locations, max.edge = c(20, 40)) 
+MeshC <- inla.mesh.2d(Locations, max.edge = c(10, 20))
+
+#If you get error "margins too large", adjust plot margins by using : par(mar = c(1, 1, 1, 1)) or increase R ploting panel
+
+plot(MeshA)
+
+plot(MeshB)
+
+plot(MeshC)
+
+Mesh <- MeshA # TO DO: Choice of right Mesh
+points(Locations, col = "red", pch = 2)
+
+
+# Build the Stack
+
+
+
+
+# INLA SPDE model
+
+
+#-------------------Accuracy of Prediction--------------------------------------
+
+# Specify models for corrected Phenotype 
 # * base model for milk_corrected
 modelBase_milk_corrected <- "milkZ ~ 1 + cyrsn + tyrmn + dgrp + (ageZ|lacgr) + (leg0|lacgr) + (leg1|lacgr) + (leg2|lacgr) + f(cowPeI, model = 'iid')" # Milk corrected for all the fixed effects + cowPeI as in Mrode et al.2021
 
@@ -125,113 +295,19 @@ modelWCRI_milk_corrected <- as.formula(paste0(modelBase_milk_corrected, " + f(wa
 # * model for milk_corrected: Adding ward_code as a random Besag effect
 modelWCRB_milk_corrected <- as.formula(paste0(modelBase_milk_corrected, " + f(ward_codeI, model = 'besag', graph = nb.map, scale.model = TRUE)"))
 
-# ---- Run the models ----------------------------------------------------------
-
-# *fitWCF
-sink('results/fitWCF.txt') # Print outputs of fitWCF
-
-fitWCF <- inla(formula = modelWCF, data = data1,
-               control.compute = list(dic = TRUE))
-'fitWCF'
-summary(fitWCF)
-# herd variance (fitWCF)
-herd_var <- inla.tmarginal(function(x) 1/x,
-                                      fitWCF$marginals.hyperpar$`Precision for herdI`)
-'herd variance'
-herd_var2<- inla.zmarginal(herd_var)
-
-# cowI variance (fitWCF)
-cowI_var <- inla.tmarginal(function(x) 1/x,
-                                     fitWCF$marginals.hyperpar$`Precision for cowI`)
-'cow additive genetic variance'
-cowI_var2 <- inla.zmarginal(cowI_var)
-       
-#cowPeI variance (fitWCF)
-cowPeI_var <- inla.tmarginal(function(x) 1/x,
-                                       fitWCF$marginals.hyperpar$`Precision for cowPeI`)
-'Permanent environment effect'
-cowPeI_var2 <- inla.zmarginal(cowPeI_var)
-
-
-# Residual variance  (fitWCF)
-
-residual_var <- inla.tmarginal(function(x) 1/x,
-                                          fitWCF$marginals.hyperpar$`Precision for the Gaussian observations`)
-'Residual variance'
-residual_var2 <- inla.zmarginal(residual_var)
-
-# Phenotype variance (fitWCF)
-Phenovar_fitWCF <- herd_var + cowI_var + cowPeI_var + residual_var
-'phenotypic variance'
-Phenovar_fitWCF2<- inla.zmarginal(Phenovar_fitWCF)
-sink() # close sink fitWCF
-
-#@gg I believe there should be a way to display all the marginal variances as in the initial code
-
-# fitWCRI 
-
-sink('results/fitWCRI.txt') #Print outputs of fitWCRI
-'fitWCRI'
-fitWCRI <- inla(formula = modelWCRI, data = data1,
-               control.compute = list(dic = TRUE))
-(tmp <- summary(fitWCRI))
-tmp2 <- 1 / tmp$hyperpar$mean
-names(tmp2) <- sub(x = rownames(tmp$hyperpar),
-                   pattern = "Precision",
-                   replacement = "Variance")
-tmp2
-sink() # close sink
-
-# fitWCRB
-sink('results/fitWCRB.txt') #Print outputs of fitWCRB
-fitWCRB <- inla(formula = modelWCRB, data = data1,
-               control.compute = list(dic = TRUE))
-(tmp <- summary(fitWCRB))
-tmp2 <- 1 / tmp$hyperpar$mean
-names(tmp2) <- sub(x = rownames(tmp$hyperpar),
-                   pattern = "Precision",
-                   replacement = "Variance")
-tmp2
-
-sink() # close sink fitWCRB
+#Run models for corrected Phenotype
 
 # *fitWCF_milk_corrected
 fitWCF_milk_corrected<- inla(formula = modelWCF_milk_corrected, data = data1,
-               control.compute = list(dic = TRUE))
-(tmp <- summary(fitWCF_milk_corrected))
-tmp2 <- 1 / tmp$hyperpar$mean
-names(tmp2) <- sub(x = rownames(tmp$hyperpar),
-                   pattern = "Precision",
-                   replacement = "Variance")
-tmp2
+                             control.compute = list(dic = TRUE, config=TRUE))
 
 # fitWCRI_milk_corrected
 fitWCRI_milk_corrected <- inla(formula = modelWCRI_milk_corrected, data = data1,
-                control.compute = list(dic = TRUE))
-(tmp <- summary(fitWCRI_milk_corrected))
-tmp2 <- 1 / tmp$hyperpar$mean
-names(tmp2) <- sub(x = rownames(tmp$hyperpar),
-                   pattern = "Precision",
-                   replacement = "Variance")
-tmp2
+                               control.compute = list(dic = TRUE, config=TRUE))
 
 # fitWCRB_milk_corrected
 fitWCRB_milk_corrected <- inla(formula = modelWCRB_milk_corrected, data = data1,
-                control.compute = list(dic = TRUE))
-(tmp <- summary(fitWCRB_milk_corrected))
-tmp2 <- 1 / tmp$hyperpar$mean
-names(tmp2) <- sub(x = rownames(tmp$hyperpar),
-                   pattern = "Precision",
-                   replacement = "Variance")
-tmp2
-
-# -------SPDE-------------------------------------------------------------------
-
-
-
-
-
-
+                               control.compute = list(dic = TRUE, config=TRUE))
 
 
 
