@@ -38,8 +38,8 @@ if (FALSE) {
   inla.upgrade(testing = TRUE)
 }
 library(tidyverse)
-library(INLA) # TODO change to inlabru and add inlabrue estimation above
-
+library(INLA)# TODO change to inlabru and add inlabrue estimation above
+library(gridExtra)
 (.packages()) # Check loaded packages
 
 
@@ -120,7 +120,6 @@ sink('results/fitWCF.txt') # Print outputs of fitWCF
 'fitWCF'
 fitWCF <- inla(formula = modelWCF, data = data1,
                control.compute = list(dic = TRUE,config=TRUE))
-summary(fitWCF)
 
 # Create a function to summarise precision to variance 
 
@@ -150,6 +149,9 @@ summarise_precision_to_variance = function(x, nSamples = 1000) {
   Out$Proportion[] = t(apply(X = Samples / Samples[, nTerms + 1], MARGIN = 2, FUN = SummarizeFun))
   return(Out)
 }
+'summary fitWCF'
+summary(fitWCF)
+'Summarize Variances fitWCF'
 summarise_precision_to_variance(fitWCF)
 sink()
 
@@ -159,14 +161,22 @@ sink('results/fitWCRI.txt') #Print outputs of fitWCRI
 'fitWCRI'
 fitWCRI <- inla(formula = modelWCRI, data = data1,
                control.compute = list(dic = TRUE, config=TRUE))
+'Summary fitWCRI'
+summary(fitWCRI)
+'sumarize variance fitWCRI'
 summarise_precision_to_variance(fitWCRI)
 sink() 
 
 # fitWCRB
-'fitWCRB'
+
 sink('results/fitWCRB.txt') #Print outputs of fitWCRB
 fitWCRB <- inla(formula = modelWCRB, data = data1,
                control.compute = list(dic = TRUE, config=TRUE))
+'fitWCRB'
+'Summary fitWCRB'
+summary(fitWCRB)
+
+'Summarize variance fitWCRB'
 summarise_precision_to_variance(fitWCRB)
 sink() # close sink fitWCRB
 
@@ -193,7 +203,24 @@ ggplot(data.frame(inla.smarginal(inla.tmarginal(function(x) 1/x,
 
 #TO DO: Plot posterior distribution of all models in a single graph for genetic effect
 
+# Plot genetic variance across models
+Pg <- ggplot()  +
+  geom_line(data.frame(inla.smarginal(inla.tmarginal(function(x) 1/x,
+                                                     fitWCF$marginals.hyperpar$`Precision for cowI`))), mapping = aes(x, y), color="black") + 
+  theme_bw() +
+  
+  geom_line(data.frame(inla.smarginal(inla.tmarginal(function(x) 1/x,
+                                                     fitWCRI$marginals.hyperpar$`Precision for cowI`))), mapping = aes(x, y), color="blue", linetype = "dashed") +
+  theme_bw() +
+  geom_line(data.frame(inla.smarginal(inla.tmarginal(function(x) 1/x,
+      
+                                              fitWCRB$marginals.hyperpar$`Precision for cowI`))), mapping = aes(x, y), color="red", linetype = "dashed") +
+  theme_bw() +
+  labs(x="", y="", title ="Genetic variance")
 
+Pg <- Pg + scale_y_continuous(breaks=NULL)
+  
+Pg 
 # Residual variance 
 # * fitWCF
 ggplot(data.frame(inla.smarginal(inla.tmarginal(function(x) 1/x,
@@ -213,6 +240,25 @@ ggplot(data.frame(inla.smarginal(inla.tmarginal(function(x) 1/x,
   geom_line() +
   theme_bw()
 #TO DO: Plot posterior distributions of all models in a single graph for residual variance
+
+# Plotting Residual variance posterior distribution across models
+
+Pr <- ggplot()  +
+  geom_line(data.frame(inla.smarginal(inla.tmarginal(function(x) 1/x,
+                                                     fitWCF$marginals.hyperpar$`Precision for the Gaussian observations`))), mapping = aes(x, y), color="black") + 
+  theme_bw() +
+  
+  geom_line(data.frame(inla.smarginal(inla.tmarginal(function(x) 1/x,
+                                                     fitWCRI$marginals.hyperpar$`Precision for the Gaussian observations`))), mapping = aes(x, y), color="blue", linetype = "dashed") +
+  theme_bw() +
+  geom_line(data.frame(inla.smarginal(inla.tmarginal(function(x) 1/x,
+                                                     
+                                                     fitWCRB$marginals.hyperpar$`Precision for the Gaussian observations`))), mapping = aes(x, y), color="red", linetype = "dashed") +
+  theme_bw() +
+  labs(x="", y="", title ="Residual variance")
+Pr<- Pr + scale_y_continuous(breaks=NULL)
+Pr
+
 
 # Herd_Variance 
 
@@ -236,6 +282,23 @@ ggplot(data.frame(inla.smarginal(inla.tmarginal(function(x) 1/x,
 
 #TO DO: Plot posterior distributions of all models in a single graph for herd effect
 
+Ph <- ggplot()  +
+  geom_line(data.frame(inla.smarginal(inla.tmarginal(function(x) 1/x,
+                                                     fitWCF$marginals.hyperpar$`Precision for herdI`))), mapping = aes(x, y), color="black") + 
+  theme_bw() +
+  
+  geom_line(data.frame(inla.smarginal(inla.tmarginal(function(x) 1/x,
+                                                     fitWCRI$marginals.hyperpar$`Precision for herdI`))), mapping = aes(x, y), color="blue", linetype = "dashed") +
+  theme_bw() +
+  geom_line(data.frame(inla.smarginal(inla.tmarginal(function(x) 1/x,
+                                                     
+                                                     fitWCRB$marginals.hyperpar$`Precision for herdI`))), mapping = aes(x, y), color="red", linetype = "dashed") +
+  theme_bw() +
+  labs(x="", y="", title ="Herd effect variance")
+
+Ph<- Ph + scale_y_continuous(breaks=NULL)
+Ph
+
 # Ward_variance (fitWCRI and fitWCRB)
 
 # * fitWCRI
@@ -251,6 +314,26 @@ ggplot(data.frame(inla.smarginal(inla.tmarginal(function(x) 1/x,
   theme_bw()
 #TO DO: Plot posterior distributions of all models in a single graph for ward effect
 
+Pw <- ggplot()  +
+  
+  geom_line(data.frame(inla.smarginal(inla.tmarginal(function(x) 1/x,
+                                                     fitWCRI$marginals.hyperpar$`Precision for ward_codeI`))), mapping = aes(x, y), color="blue", linetype = "dashed") +
+  theme_bw() +
+  geom_line(data.frame(inla.smarginal(inla.tmarginal(function(x) 1/x,
+                                                     
+                                                     fitWCRB$marginals.hyperpar$`Precision for ward_codeI`))), mapping = aes(x, y), color="red", linetype = "dashed") +
+  theme_bw() +
+  labs(x="", y="", title ="Ward effect variance")
+
+
+Pw<- Pw + scale_y_continuous(breaks=NULL)
+Pw
+
+#---------Combined Plot Variance components------------------------------------------------
+grid.arrange(Pg, Pr, Ph, Pw) # Black= fitWCF, Blue=fitWCRI and Red=fitWCRB
+
+# TO DO: Add proper legend.
+ 
 
 # -------SPDE-------------------------------------------------------------------
 # Setting up a mesh
