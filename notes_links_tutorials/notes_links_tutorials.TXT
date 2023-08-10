@@ -15,3 +15,11 @@ The above is a much cleaner way to do validation.One important point is to figur
 1.	Check how setting a phenotype value to  NA  gives you a prediction - explore the structure of the INLA output - there is a lot of things in there - the object is a huge list of lists of lists etc. See also the documentation - let me know if you get lost!
 2.	Think about good/interesting validation scenarios - scribble them here and we can discuss
 3.	Think how to implement these different validation scenarios in R code
+
+
+
+https://github.blog/2015-06-08-how-to-undo-almost-anything-with-git/ (git reflog save me from loosing script)
+
+https://sethrobertson.github.io/GitFixUm/fixup.html (On undoing, fixing, or removing commits in git)
+
+git reset HEAD^ (to undo a commit but keeping changes for reworking)
