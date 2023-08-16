@@ -23,3 +23,8 @@ https://github.blog/2015-06-08-how-to-undo-almost-anything-with-git/ (git reflog
 https://sethrobertson.github.io/GitFixUm/fixup.html (On undoing, fixing, or removing commits in git)
 
 git reset HEAD^ (to undo a commit but keeping changes for reworking)
+
+
+https://www.r-inla.org/faq#h.821k2r53fvx3 (Various questions answers on INLA including leave one out prediction)
+
+https://www.flutterbys.com.au/stats/tut/tut12.10.html (A very comprehensive description of INLA Linear models output)
