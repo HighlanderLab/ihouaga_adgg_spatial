@@ -8,9 +8,13 @@
 # ---- Setup -------------------------------------------------------------------
 
 # Working directory
-# ... Isidore's laptop
+# ... Isidore's window's laptop
 baseDir <- "C:/Users/Lenovo/OneDrive/Documents/ihouaga_adgg_spatial"
 getwd()
+
+# ... Isidore's Mack laptop
+baseDir <- "/Users/ihouaga2/ihouaga_adgg_spatial"
+
 # ... Isidore's Eddie workspace
 baseDir <- ""
 
@@ -28,7 +32,7 @@ dir()
 
 if (FALSE) {
   requiredPackages <- c(
-    "tidyverse", # for data manipulation
+    "tidyverse",  # tidyverse for data manipulation and verification for Continuous Ranked Probability Score 
   )
   install.packages(pkgs = requiredPackages)
   install.packages(pkgs = "INLA",
@@ -37,9 +41,12 @@ if (FALSE) {
                    dep = TRUE)
   inla.upgrade(testing = TRUE)
 }
+install.packages('verification')
+
 library(tidyverse)
 library(INLA)# TODO change to inlabru and add inlabrue estimation above
 library(gridExtra)
+library(verification)
 (.packages()) # Check loaded packages
 
 
@@ -120,6 +127,9 @@ sink('results/fitWCF.txt') # Print outputs of fitWCF
 'fitWCF'
 fitWCF <- inla(formula = modelWCF, data = data1,
                control.compute = list(dic = TRUE,config=TRUE))
+# save fitWCF as R object
+#save(fitWCF,file = "data/cleaned_data/fitWCF.RData") 
+load(file = "data/cleaned_data/fitWCF.RData") # to load the R object 
 
 # Create a function to summarise precision to variance 
 
@@ -151,6 +161,7 @@ summarise_precision_to_variance = function(x, nSamples = 1000) {
 }
 'summary fitWCF'
 summary(fitWCF)
+
 'Summarize Variances fitWCF'
 summarise_precision_to_variance(fitWCF)
 sink()
@@ -161,6 +172,8 @@ sink('results/fitWCRI.txt') #Print outputs of fitWCRI
 'fitWCRI'
 fitWCRI <- inla(formula = modelWCRI, data = data1,
                control.compute = list(dic = TRUE, config=TRUE))
+#save(fitWCRI,file = "data/cleaned_data/fitWCRI.RData") 
+load(file = "data/cleaned_data/fitWCRI.RData") # to load the R object 
 'Summary fitWCRI'
 summary(fitWCRI)
 'sumarize variance fitWCRI'
@@ -172,6 +185,9 @@ sink()
 sink('results/fitWCRB.txt') #Print outputs of fitWCRB
 fitWCRB <- inla(formula = modelWCRB, data = data1,
                control.compute = list(dic = TRUE, config=TRUE))
+#save(fitWCRB,file = "data/cleaned_data/fitWCRB.RData") 
+load(file = "data/cleaned_data/fitWCRB.RData")
+
 'fitWCRB'
 'Summary fitWCRB'
 summary(fitWCRB)
@@ -214,7 +230,7 @@ Pg <- ggplot()  +
   theme_bw() +
   geom_line(data.frame(inla.smarginal(inla.tmarginal(function(x) 1/x,
       
-                                              fitWCRB$marginals.hyperpar$`Precision for cowI`))), mapping = aes(x, y), color="red", linetype = "dashed") +
+                                              fitWCRB$marginals.hyperpar$`Precision for cowI`))), mapping = aes(x, y), color="red", linetype = "dotted") +
   theme_bw() +
   labs(x="", y="", title ="Genetic variance")
 
@@ -253,7 +269,7 @@ Pr <- ggplot()  +
   theme_bw() +
   geom_line(data.frame(inla.smarginal(inla.tmarginal(function(x) 1/x,
                                                      
-                                                     fitWCRB$marginals.hyperpar$`Precision for the Gaussian observations`))), mapping = aes(x, y), color="red", linetype = "dashed") +
+                                                     fitWCRB$marginals.hyperpar$`Precision for the Gaussian observations`))), mapping = aes(x, y), color="red", linetype = "dotted") +
   theme_bw() +
   labs(x="", y="", title ="Residual variance")
 Pr<- Pr + scale_y_continuous(breaks=NULL)
@@ -292,7 +308,7 @@ Ph <- ggplot()  +
   theme_bw() +
   geom_line(data.frame(inla.smarginal(inla.tmarginal(function(x) 1/x,
                                                      
-                                                     fitWCRB$marginals.hyperpar$`Precision for herdI`))), mapping = aes(x, y), color="red", linetype = "dashed") +
+                                                     fitWCRB$marginals.hyperpar$`Precision for herdI`))), mapping = aes(x, y), color="red", linetype = "dotted") +
   theme_bw() +
   labs(x="", y="", title ="Herd effect variance")
 
@@ -321,7 +337,7 @@ Pw <- ggplot()  +
   theme_bw() +
   geom_line(data.frame(inla.smarginal(inla.tmarginal(function(x) 1/x,
                                                      
-                                                     fitWCRB$marginals.hyperpar$`Precision for ward_codeI`))), mapping = aes(x, y), color="red", linetype = "dashed") +
+                                                     fitWCRB$marginals.hyperpar$`Precision for ward_codeI`))), mapping = aes(x, y), color="red", linetype = "dotted") +
   theme_bw() +
   labs(x="", y="", title ="Ward effect variance")
 
@@ -336,68 +352,396 @@ grid.arrange(Pg, Pr, Ph, Pw) # Black= fitWCF, Blue=fitWCRI and Red=fitWCRB
  
 
 # -------SPDE-------------------------------------------------------------------
-# Setting up a mesh
-Locations = cbind(data1$long, data1$lat)# using the sampling locations 
+# Make mesh and SPDE 
+# Priors
+# SPDE
+hyperRange  = c(50, 0.8)
+hyperVarSpdeS = c(sqrt(0.25), 0.5)
+hyperVarSpdeHS = c(sqrt(0.10), 0.5)
+hyperResVarGHS = list(theta = list(prior="pc.prec", param=c(sqrt(0.15),0.5)))
 
-MeshA <- inla.mesh.2d(jitter(Locations), max.edge = c(10, 20))
-MeshB <- inla.mesh.2d(Locations, max.edge = c(20, 40)) 
-MeshC <- inla.mesh.2d(Locations, max.edge = c(10, 20))
+mesh = inla.mesh.2d(cbind(data1$long, data1$lat), max.edge=c(10, 20), cutoff = 2.5, offset = 30)
+A = inla.spde.make.A(mesh = mesh, loc = cbind(data1$long, data1$lat) )
+spdeStatS = inla.spde2.pcmatern(mesh = mesh, alpha = 2 ,  prior.range = hyperRange, prior.sigma = hyperVarSpdeS)
+meshIndexS = inla.spde.make.index(name = "fieldID", n.spde = spdeStatS$n.spde) 
+spdeStatHS = inla.spde2.pcmatern(mesh = mesh, alpha = 2 ,  prior.range = hyperRange, prior.sigma = hyperVarSpdeHS)
+meshIndexHS = inla.spde.make.index(name = "fieldID", n.spde = spdeStatHS$n.spde) 
 
-#If you get error "margins too large", adjust plot margins by using : par(mar = c(1, 1, 1, 1)) or increase R ploting panel
+# Make stack
 
-plot(MeshA)
-
-plot(MeshB)
-
-plot(MeshC)
-
-Mesh <- MeshA # TO DO: Choice of right Mesh
-points(Locations, col = "red", pch = 2)
-
-
-# Build the Stack
+stack = inla.stack(data = list(milkZ = data1$milkZ),
+                   A = list(A,1),
+                   effects = list(c(meshIndexS, list(intercept = 1)),
+                                  list(cowI = data1$cowI,herdI = data1$herdI, cowPeI = data1$cowPeI,
+                                       cyrsn=data1$cyrsn, tyrmn=data1$tyrmn,dgrp= data1$dgrp, ageZ=data1$ageZ, lacgr=data1$lacgr, leg0=data1$leg0, leg1=data1$leg1,leg2=data1$leg2)), tag = "data1.data") 
 
 
+formulaspde <- as.formula(paste0(modelBase, " + f(fieldID, model = spdeStatS)"))
 
 
-# INLA SPDE model
+modelSPDE= inla(formula = formulaspde, data = inla.stack.data(stack),
+                family = "normal", control.predictor =list(A=inla.stack.A(stack),compute = T),
+                control.family=list(list(hyper=hyperResVarGHS)),
+                control.compute = list(dic=T,cpo=F, config=T), 
+                control.fixed = list(expand.factor.strategy="inla"), verbose=T)
+
+
+
+# I got: "Error in cyrsn + tyrmn : non-conformable arrays" and Error in cyrsn + tyrmn : non-numeric argument to binary operator"
+
+# After making them as.numeric the spde model run # Discuss this with @gg
+
+data1$tyrmn <- as.numeric(data1$tyrmn) 
+data1$cyrsn <- as.numeric(data1$cyrsn)
+data1$dgrp <- as.numeric(data1$dgrp) 
 
 
 #-------------------Accuracy of Prediction--------------------------------------
+#----------- Accuracy model fitWCF----------------------------------------------
 
-# Specify models for corrected Phenotype 
-# * base model for milk_corrected
-modelBase_milk_corrected <- "milkZ ~ 1 + cyrsn + tyrmn + dgrp + (ageZ|lacgr) + (leg0|lacgr) + (leg1|lacgr) + (leg2|lacgr) + f(cowPeI, model = 'iid')" # Milk corrected for all the fixed effects + cowPeI as in Mrode et al.2021
+# Masking phenotypes of cows in dgrp 1 (Breed proportion class 1)
+#dgrp1 masked
+data1_1_NA<- data1 %>% mutate(milkZ = ifelse(dgrp == "1", NA, milkZ))
+sum(is.na(data1$milkZ)) # 0 
+sum(is.na(data1_1_NA$milkZ)) #7466 
+length(unique(data1_1_NA$cowI)) # 1894
+length(unique(data1$cowI)) # 1894
+fitWCF_NA1 <- inla(formula = modelWCF, data = data1_1_NA,
+               control.compute = list(dic = TRUE,config=TRUE))
 
-# * model for milk_corrected: Adding ward_code as a fixed effect
-modelWCF_milk_corrected <- as.formula(paste0(modelBase_milk_corrected, " + ward_codeI"))
+# save fitWCF_NA1 as R object
+save(fitWCF_NA1,file = "data/cleaned_data/fitWCF_NA1.RData") 
+ #load(file = "data/cleaned_data/fitWCF_NA1.RData") # to load the R object 
 
-# * model for milk_corrected: Adding ward_code as a random IID effect
-modelWCRI_milk_corrected <- as.formula(paste0(modelBase_milk_corrected, " + f(ward_codeI, model = 'iid')"))
+pheno_pred1 <- fitWCF_NA1$summary.linear.predictor 
+colnames(pheno_pred1)
+sum(is.na(pheno_pred1$mean)) # 0 expected
+data1$milkZ_pred <- pheno_pred1$mean
+data1$milkZ_pred_sd <- pheno_pred1$sd 
+pheno1 <-   subset(data1, dgrp==1) 
+pheno1<- subset(pheno1,select= c(cowI,milkZ,milkZ_pred,milkZ_pred_sd))  
+length(unique(pheno1$cowI))# 731 Cows in breed composition class 1
 
-# * model for milk_corrected: Adding ward_code as a random Besag effect
-modelWCRB_milk_corrected <- as.formula(paste0(modelBase_milk_corrected, " + f(ward_codeI, model = 'besag', graph = nb.map, scale.model = TRUE)"))
+# Correlating observed phenotype of cows in dgrp 1 with predicted phenotyped 
+accuracy_fitWCF_1 <- round(cor(pheno1$milkZ,pheno1$milkZ_pred),2) 
+Coef1<- lm (pheno1$milkZ~pheno1$milkZ_pred)
+accuracy_fitWCF_1 = 0.24
+R2_fitWCF_1<- summary(Coef1)
+R2_fitWCF_1 = 0.05932
+#CRPS
+obs <- pheno1$milkZ
+pred<- subset(pheno1,select= c(milkZ_pred,milkZ_pred_sd))
+crps_fitWCF_1 <- crps(obs,pred)
+round((crps_fitWCF_1$CRPS),2) # 0.6
+crps_fitWCF_1= 0.6
+# Masking phenotypes of cows in dgrp 2 (Breed proportion class 2)
+#dgrp2 masked
+data1_2_NA<- data1 %>% mutate(milkZ = ifelse(dgrp == "2", NA, milkZ))
+ sum(is.na(data1_2_NA$milkZ)) # 8149
+length(unique(data1_2_NA$cowI)) # 1894
 
-#Run models for corrected Phenotype
+fitWCF_NA2 <- inla(formula = modelWCF, data = data1_2_NA,
+                   control.compute = list(dic = TRUE,config=TRUE))
+save(fitWCF_NA2,file = "data/cleaned_data/fitWCF_NA2.RData") 
+#load(file = "data/cleaned_data/fitWCF_NA2.RData") # to load the R object 
 
-# *fitWCF_milk_corrected
-fitWCF_milk_corrected<- inla(formula = modelWCF_milk_corrected, data = data1,
-                             control.compute = list(dic = TRUE, config=TRUE))
+pheno_pred2 <- fitWCF_NA2$summary.linear.predictor 
+colnames(pheno_pred2)
+sum(is.na(pheno_pred1$mean)) # 0 expected
+data1$milkZ_pred <- pheno_pred2$mean
+data1$milkZ_pred_sd <- pheno_pred2$sd
 
-# fitWCRI_milk_corrected
-fitWCRI_milk_corrected <- inla(formula = modelWCRI_milk_corrected, data = data1,
-                               control.compute = list(dic = TRUE, config=TRUE))
+pheno2 <-   subset(data1, dgrp==2) 
+pheno2<- subset(pheno2,select= c(cowI,milkZ,milkZ_pred,milkZ_pred_sd))  
+length(unique(pheno2$cowI))#  Cows in breed composition class 2
 
-# fitWCRB_milk_corrected
-fitWCRB_milk_corrected <- inla(formula = modelWCRB_milk_corrected, data = data1,
-                               control.compute = list(dic = TRUE, config=TRUE))
+# Correlating observed phenotype of cows in dgrp 2 with predicted phenotypes 
+accuracy_fitWCF_2 <- round(cor(pheno2$milkZ,pheno2$milkZ_pred),2) 
+Coef2<- lm (pheno2$milkZ~pheno2$milkZ_pred)
+accuracy_fitWCF_2 = 0.34
+R2_fitWCF_2<- summary(Coef2)
+R2_fitWCF_2 = 0.1123
+#CRPS
+obs <- pheno2$milkZ
+pred<- subset(pheno2,select= c(milkZ_pred,milkZ_pred_sd))
+crps_fitWCF_2 <- crps(obs,pred)
+round((crps_fitWCF_2$CRPS),2)
+crps_fitWCF_2= 0.53
+
+# Masking phenotypes of cows in dgrp 3 (Breed proportion class 3)
+#dgrp3 masked
+data1_3_NA<- data1 %>% mutate(milkZ = ifelse(dgrp == "3", NA, milkZ))
+sum(is.na(data1_3_NA$milkZ)) # 3058 
+length(unique(data1_3_NA$cowI)) # 1894
+
+fitWCF_NA3 <- inla(formula = modelWCF, data = data1_3_NA,
+                   control.compute = list(dic = TRUE,config=TRUE))
+
+save(fitWCF_NA3,file = "data/cleaned_data/fitWCF_NA3.RData") 
+ #load(file = "data/cleaned_data/fitWCF_NA3.RData") # to load the R object 
+
+pheno_pred3 <- fitWCF_NA3$summary.linear.predictor 
+sum(is.na(pheno_pred3$mean)) # 0 expected
+data1$milkZ_pred <- pheno_pred3$mean
+data1$milkZ_pred_sd <- pheno_pred3$sd
+
+pheno3 <-   subset(data1, dgrp==3) 
+pheno3<- subset(pheno3,select= c(cowI,milkZ,milkZ_pred,milkZ_pred_sd))  
+length(unique(pheno3$cowI))#  309 Cows in breed composition class 3
+
+# Correlating observed phenotype of cows in dgrp 3 with predicted phenotypes 
+accuracy_fitWCF_3 <- round(cor(pheno3$milkZ,pheno3$milkZ_pred),2) 
+Coef3<- lm (pheno3$milkZ~pheno3$milkZ_pred)
+accuracy_fitWCF_3 = 0.28
+R2_fitWCF_3<- summary(Coef3)
+R2_fitWCF_3= 0.08083
+#CRPS
+obs <- pheno3$milkZ
+pred<- subset(pheno3,select= c(milkZ_pred,milkZ_pred_sd))
+crps_fitWCF_3 <- crps(obs,pred)
+round((crps_fitWCF_3$CRPS),2) # 
+crps_fitWCF_3= 0.52
+
+# Masking phenotypes of cows in dgrp 4 (Breed proportion class 4)
+#dgrp4 masked
+data1_4_NA<- data1 %>% mutate(milkZ = ifelse(dgrp == "4", NA, milkZ))
+sum(is.na(data1_4_NA$milkZ)) # 702
+length(unique(data1_4_NA$cowI)) # 1894
+
+fitWCF_NA4 <- inla(formula = modelWCF, data = data1_4_NA,
+                   control.compute = list(dic = TRUE,config=TRUE))
+save(fitWCF_NA4,file = "data/cleaned_data/fitWCF_NA4.RData") 
+ #load(file = "data/cleaned_data/fitWCF_NA4.RData") # to load the R object 
+
+pheno_pred4 <- fitWCF_NA4$summary.linear.predictor 
+sum(is.na(pheno_pred4$mean)) # 0 expected
+data1$milkZ_pred <- pheno_pred4$mean
+data1$milkZ_pred_sd <- pheno_pred4$sd
+
+pheno4 <-   subset(data1, dgrp==4) 
+pheno4<- subset(pheno4,select= c(cowI,milkZ,milkZ_pred,milkZ_pred_sd))  
+length(unique(pheno4$cowI))#  84 Cows in breed composition class 4
+
+# Correlating observed phenotype of cows in dgrp 4 with predicted phenotypes 
+accuracy_fitWCF_4 <- round(cor(pheno4$milkZ,pheno4$milkZ_pred),2) 
+Coef4<- lm (pheno4$milkZ~pheno4$milkZ_pred)
+accuracy_fitWCF_4 # -0.05
+R2_fitWCF_4<- summary(Coef4)
+R2_fitWCF_4=0.0008917 
+#CRPS
+obs <- pheno4$milkZ
+pred<- subset(pheno4,select= c(milkZ_pred,milkZ_pred_sd))
+crps_fitWCF_4 <- crps(obs,pred)
+round((crps_fitWCF_4$CRPS),2) # 0.58
+crps_fitWCF_4= 0.58
+
+# Accuracy of prediction and degree under/overprediction of model fitWCF
+  
+accuracy_fitWCF = (accuracy_fitWCF_1 + accuracy_fitWCF_2 + accuracy_fitWCF_3 + accuracy_fitWCF_4)/4
+round((accuracy_fitWCF),2) # 0.2 
+
+R2_fitWCF = R2_fitWCF_1 + R2_fitWCF_2 + R2_fitWCF_3 + R2_fitWCF_4
+round((R2_fitWCF),2) # 
+
+R2_fitWCF=0.25 # TO DO: will edit code to avoid assigning object to numeric value as value may change
+
+crps_fitWCF =(crps_fitWCF_1+crps_fitWCF_2+crps_fitWCF_3+crps_fitWCF_4)/4
+round((crps_fitWCF),2) 
+
+crps_fitWCF # 0.56
+
+#----------- Accuracy model fitWCRI (TO Edit as in fitWCF)----------------------------------------------
+
+fitWCRI_NA1 <- inla(formula = modelWCRI, data = data1_1_NA,
+                   control.compute = list(dic = TRUE,config=TRUE))
+
+# save fitWCF_NA1 as R object
+save(fitWCRI_NA1,file = "data/cleaned_data/fitWCRI_NA1.RData") 
+# load(file = "data/cleaned_data/fitWCRI_NA1.RData") # to load the R object 
+
+pheno_pred1 <- fitWCRI_NA1$summary.linear.predictor 
+colnames(pheno_pred1)
+sum(is.na(pheno_pred1$mean)) # 0 expected
+data1$milkZ_pred <- pheno_pred1$mean
+
+pheno1 <-   subset(data1, dgrp==1) 
+pheno1<- subset(pheno1,select= c(cowI,milkZ,milkZ_pred))  
+length(unique(pheno1$cowI))# 731 Cows in breed composition class 1
+
+# Correlating observed phenotype of cows in dgrp 1 with predicted phenotyped 
+accuracy_fitWCRI_1 <- round(cor(pheno1$milkZ,pheno1$milkZ_pred),2) 
+Coef1<- lm (pheno1$milkZ~pheno1$milkZ_pred)
+accuracy_fitWCRI_1 #
+R2_fitWCRI_1<- summary(Coef1)
+
+fitWCRI_NA2 <- inla(formula = modelWCRI, data = data1_2_NA,
+                   control.compute = list(dic = TRUE,config=TRUE))
+save(fitWCRI_NA2,file = "data/cleaned_data/fitWCRI_NA2.RData") 
+# load(file = "data/cleaned_data/fitWCRI_NA2.RData") # to load the R object 
+
+pheno_pred2 <- fitWCRI_NA2$summary.linear.predictor 
+colnames(pheno_pred2)
+sum(is.na(pheno_pred1$mean)) # 0 expected
+data1$milkZ_pred <- pheno_pred2$mean
+
+pheno2 <-   subset(data1, dgrp==2) 
+pheno2<- subset(pheno2,select= c(cowI,milkZ,milkZ_pred))  
+length(unique(pheno2$cowI))#  Cows in breed composition class 2
+
+# Correlating observed phenotype of cows in dgrp 2 with predicted phenotypes 
+accuracy_fitWCRI_2 <- round(cor(pheno2$milkZ,pheno2$milkZ_pred),2) 
+Coef2<- lm (pheno2$milkZ~pheno2$milkZ_pred)
+accuracy_fitWCRI_2 #
+R2_fitWCRI_2<- summary(Coef2)
 
 
+#dgrp3 masked
+
+fitWCRI_NA3 <- inla(formula = modelWCRI, data = data1_3_NA,
+                   control.compute = list(dic = TRUE,config=TRUE))
+
+save(fitWCRI_NA3,file = "data/cleaned_data/fitWCRI_NA3.RData") 
+# load(file = "data/cleaned_data/fitWCRI_NA3.RData") # to load the R object 
+
+pheno_pred3 <- fitWCRI_NA3$summary.linear.predictor 
+colnames(pheno_pred3)
+sum(is.na(pheno_pred3$mean)) # 0 expected
+data1$milkZ_pred <- pheno_pred3$mean
+
+pheno3 <-   subset(data1, dgrp==3) 
+pheno3<- subset(pheno3,select= c(cowI,milkZ,milkZ_pred))  
+length(unique(pheno3$cowI))#  Cows in breed composition class 3
+
+# Correlating observed phenotype of cows in dgrp 3 with predicted phenotypes 
+accuracy_fitWCRI_3 <- round(cor(pheno3$milkZ,pheno3$milkZ_pred),2) 
+Coef3<- lm (pheno3$milkZ~pheno3$milkZ_pred)
+accuracy_fitWCRI_3 #
+R2_fitWCRI_3 <-summary(Coef3)
+
+fitWCRI_NA4 <- inla(formula = modelWCRI, data = data1_4_NA,
+                   control.compute = list(dic = TRUE,config=TRUE))
+save(fitWCRI_NA4,file = "data/cleaned_data/fitWCRI_NA4.RData") 
+# load(file = "data/cleaned_data/fitWCRI_NA4.RData") # to load the R object
+
+pheno_pred4 <- fitWCRI_NA4$summary.linear.predictor 
+colnames(pheno_pred4)
+sum(is.na(pheno_pred4$mean)) # 0 expected
+data1$milkZ_pred <- pheno_pred4$mean
+
+pheno4 <-   subset(data1, dgrp==4) 
+pheno4<- subset(pheno4,select= c(cowI,milkZ,milkZ_pred))  
+length(unique(pheno4$cowI))#  Cows in breed composition class 4
+
+# Correlating observed phenotype of cows in dgrp 4 with predicted phenotypes 
+accuracy_fitWCRI_4 <- round(cor(pheno4$milkZ,pheno4$milkZ_pred),2) 
+Coef4<- lm (pheno4$milkZ~pheno4$milkZ_pred)
+accuracy_fitWCRI_4 #
+R2_fitWCRI_4 <- summary(Coef4)
+
+# Accuracy of prediction and degree under/overprediction of model fitWCF
+
+accuracy_fitWCRI = (accuracy_fitWCRI_1 + accuracy_fitWCRI_2 + accuracy_fitWCRI_3 + accuracy_fitWCRI_4)/4
+accuracy_fitWCRI # 
+
+R2_fitWCRI = R2_fitWCRI_1 + R2_fitWCRI_2 + R2_fitWCRI_3 + R2_fitWCRI_4
+R2_fitWCRI # 
 
 
+#----------- Accuracy model fitWCRB---------------------------------------------
+
+fitWCRB_NA1 <- inla(formula = modelWCRB, data = data1_1_NA,
+                    control.compute = list(dic = TRUE,config=TRUE))
+
+# save fitWCRB_NA1 as R object
+save(fitWCRB_NA1,file = "data/cleaned_data/fitWCRB_NA1.RData") 
+# load(file = "data/cleaned_data/fitWCRB_NA1.RData") # to load the R object 
+
+pheno_pred1 <- fitWCRB_NA1$summary.linear.predictor 
+colnames(pheno_pred1)
+sum(is.na(pheno_pred1$mean)) # 0 expected
+data1$milkZ_pred <- pheno_pred1$mean
+
+pheno1 <-   subset(data1, dgrp==1) 
+pheno1<- subset(pheno1,select= c(cowI,milkZ,milkZ_pred))  
+length(unique(pheno1$cowI))# 731 Cows in breed composition class 1
+
+# Correlating observed phenotype of cows in dgrp 1 with predicted phenotyped 
+accuracy_fitWCRB_1 <- round(cor(pheno1$milkZ,pheno1$milkZ_pred),2) 
+Coef1<- lm (pheno1$milkZ~pheno1$milkZ_pred)
+accuracy_fitWCRB_1 #
+R2_fitWCRB_1<- summary(Coef1)
+
+fitWCRB_NA2 <- inla(formula = modelWCRB, data = data1_2_NA,
+                    control.compute = list(dic = TRUE,config=TRUE))
+save(fitWCRB_NA2,file = "data/cleaned_data/fitWCRB_NA2.RData") 
+# load(file = "data/cleaned_data/fitWCRB_NA2.RData") # to load the R object 
+
+pheno_pred2 <- fitWCRB_NA2$summary.linear.predictor 
+colnames(pheno_pred2)
+sum(is.na(pheno_pred1$mean)) # 0 expected
+data1$milkZ_pred <- pheno_pred2$mean
+
+pheno2 <-   subset(data1, dgrp==2) 
+pheno2<- subset(pheno2,select= c(cowI,milkZ,milkZ_pred))  
+length(unique(pheno2$cowI))#  Cows in breed composition class 2
+
+# Correlating observed phenotype of cows in dgrp 2 with predicted phenotypes 
+accuracy_fitWCRB_2 <- round(cor(pheno2$milkZ,pheno2$milkZ_pred),2) 
+Coef2<- lm (pheno2$milkZ~pheno2$milkZ_pred)
+accuracy_fitWCRB_2 #
+R2_fitWCRB_2<- summary(Coef2)
 
 
+#dgrp3 masked
 
+fitWCRB_NA3 <- inla(formula = modelWCRB, data = data1_3_NA,
+                    control.compute = list(dic = TRUE,config=TRUE))
+
+save(fitWCRB_NA3,file = "data/cleaned_data/fitWCRB_NA3.RData") 
+# load(file = "data/cleaned_data/fitWCRB_NA3.RData") # to load the R object 
+
+pheno_pred3 <- fitWCRB_NA3$summary.linear.predictor 
+colnames(pheno_pred3)
+sum(is.na(pheno_pred3$mean)) # 0 expected
+data1$milkZ_pred <- pheno_pred3$mean
+
+pheno3 <-   subset(data1, dgrp==3) 
+pheno3<- subset(pheno3,select= c(cowI,milkZ,milkZ_pred))  
+length(unique(pheno3$cowI))#  Cows in breed composition class 3
+
+# Correlating observed phenotype of cows in dgrp 3 with predicted phenotypes 
+accuracy_fitWCRB_3 <- round(cor(pheno3$milkZ,pheno3$milkZ_pred),2) 
+Coef3<- lm (pheno3$milkZ~pheno3$milkZ_pred)
+accuracy_fitWCRB_3 #
+R2_fitWCRB_3 <-summary(Coef3)
+
+fitWCRB_NA4 <- inla(formula = modelWCRB, data = data1_4_NA,
+                    control.compute = list(dic = TRUE,config=TRUE))
+save(fitWCRB_NA4,file = "data/cleaned_data/fitWCRB_NA4.RData") 
+# load(file = "data/cleaned_data/fitWCRB_NA4.RData") # to load the R object
+
+pheno_pred4 <- fitWCRB_NA4$summary.linear.predictor 
+colnames(pheno_pred4)
+sum(is.na(pheno_pred4$mean)) # 0 expected
+data1$milkZ_pred <- pheno_pred4$mean
+
+pheno4 <-   subset(data1, dgrp==4) 
+pheno4<- subset(pheno4,select= c(cowI,milkZ,milkZ_pred))  
+length(unique(pheno4$cowI))#  Cows in breed composition class 4
+
+# Correlating observed phenotype of cows in dgrp 4 with predicted phenotypes 
+accuracy_fitWCRB_4 <- round(cor(pheno4$milkZ,pheno4$milkZ_pred),2) 
+Coef4<- lm (pheno4$milkZ~pheno4$milkZ_pred)
+accuracy_fitWCRB_4 #
+R2_fitWCRB_4 <- summary(Coef4)
+
+# Accuracy of prediction and degree of under/overprediction of model fitWCRB
+
+accuracy_fitWCRB = (accuracy_fitWCRB_1 + accuracy_fitWCRB_2 + accuracy_fitWCRB_3 + accuracy_fitWCRB_4)/4
+accuracy_fitWCRB # 
+
+R2_fitWCRB = (R2_fitWCRB_1 + R2_fitWCRB_2 + R2_fitWCRB_3 + R2_fitWCRB_4)/4
+R2_fitWCRB # 
 
 
 
@@ -742,3 +1086,12 @@ write.table(pheno_isi, "pheno_isi.txt",
              quote = FALSE, row.names = FALSE, col.names = TRUE, sep = " ", na = "0")
 
 # pheno_isi and GLinv.txt (G inverse (1911 x 1911)) were shared with Raphael for ASReml test.
+
+# Explore the the model outputs
+
+
+
+
+
+
+
