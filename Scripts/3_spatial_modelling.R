@@ -12,7 +12,6 @@
 getwd()
 baseDir <- "C:/Users/Lenovo/OneDrive/Documents/ihouaga_adgg_spatial"
 
-
 # ... Isidore's Mack laptop
 baseDir <- "/Users/ihouaga2/ihouaga_adgg_spatial"
 
@@ -34,7 +33,7 @@ dir()
 
 if (FALSE) {
   requiredPackages <- c(
-    "tidyverse", "verification" # tidyverse for data manipulation and verification for Continuous Ranked Probability Score 
+    "tidyverse", "verification", "MASS", # tidyverse for data manipulation and verification for Continuous Ranked Probability Score 
   )
   install.packages(pkgs = requiredPackages)
   install.packages(pkgs = "INLA",
@@ -44,15 +43,19 @@ if (FALSE) {
   inla.upgrade(testing = TRUE)
 }
 library(tidyverse)
-library(INLA)# TODO change to inlabru and add inlabrue estimation above
-library(gridExtra)# Visualize random field grid
-library(verification)# Visualize random field grid
+library(INLA) # TODO change to inlabru and add inlabrue estimation above
+library(gridExtra) # Visualize random field grid
+library(verification) # Visualize random field grid
 library(lattice)
 library(raster) # GetData to plot country map
 library(rgeos)
 library(viridis) # Plot mean and sd spatial effect
 library(fields)# Plot mean and sd spatial effect
-library(ggpubr) #plot mean and sd spatial effect
+library(ggpubr) # Plot mean and sd spatial effect
+library("MASS") # Pca
+library("factoextra") # Pca
+library(Hmisc) # Correlation matrix with P-values
+
 (.packages()) # Check loaded packages
 
 # ---- Import data -------------------------------------------------------------
@@ -120,7 +123,11 @@ summary(data1$leg2)
 # ---- Specify models ----------------------------------------------------------
 
 # Base model for milk - All effects without ward_code/ward_codeI 
-modelBase <- "milkZ ~ 1 + cyrsnI + tyrmnI + dgrpI + (ageZ|lacgr) + (leg0|lacgr) + (leg1|lacgr) + (leg2|lacgr) + f(herdI, model = 'iid') + f(cowPeI, model = 'iid') + f(cowI, model = 'generic0', Cmatrix = GRMInv)"
+modelBase <- "milkZ ~ 1 + cyrsnI + tyrmnI + dgrpI + (ageZ|lacgr) +
+                          (leg0|lacgr) + (leg1|lacgr) + (leg2|lacgr) +
+                          f(herdI, model = 'iid') +
+                          f(cowPeI, model = 'iid') +
+                          f(cowI, model = 'generic0', Cmatrix = GRMInv)"
 
 # Adding ward_code as a fixed effect
 modelWCF <- as.formula(paste0(modelBase, " + ward_code"))
@@ -131,13 +138,17 @@ modelWCRI <- as.formula(paste0(modelBase, " + f(ward_codeI, model = 'iid')"))
 # Adding ward_codeI as a random Besag effect
 modelWCRB <- as.formula(paste0(modelBase, " + f(ward_codeI, model = 'besag', graph = nb.map, scale.model = TRUE)"))
 
+modelBase <- as.formula(modelBase)
 
 # ---- Specifying additional models----------------------------------------------------------
 #Base model without herd effect and without word effect
 
 # Base model for milk - All effects without ward_code/ward_codeI 
-modelBaseNoherd <- " milkZ ~ 1 + cyrsnI + tyrmnI + dgrpI + (ageZ|lacgr) + (leg0|lacgr) + (leg1|lacgr) + (leg2|lacgr) + f(cowPeI, model = 'iid') + f(cowI, model = 'generic0', Cmatrix = GRMInv)"
-modelBaseNoherd_formula <- milkZ ~ 1 + cyrsnI + tyrmnI + dgrpI + (ageZ|lacgr) + (leg0|lacgr) + (leg1|lacgr) + (leg2|lacgr) + f(cowPeI, model = 'iid') + f(cowI, model = 'generic0', Cmatrix = GRMInv)
+modelBaseNoherd <- " milkZ ~ 1 + cyrsnI + tyrmnI + dgrpI + (ageZ|lacgr) +
+                             (leg0|lacgr) + (leg1|lacgr) + (leg2|lacgr) +
+                             f(cowPeI, model = 'iid') +
+                             f(cowI, model = 'generic0', Cmatrix = GRMInv)"
+
 # Adding ward_code as a fixed effect
 modelWCFNoherd <- as.formula(paste0(modelBaseNoherd, " + ward_code"))
 
@@ -147,31 +158,32 @@ modelWCRINoherd <- as.formula(paste0(modelBaseNoherd, " + f(ward_codeI, model = 
 # Adding ward_codeI as a random Besag effect
 modelWCRBNoherd <- as.formula(paste0(modelBaseNoherd, " + f(ward_codeI, model = 'besag', graph = nb.map, scale.model = TRUE)"))
 
+modelBase <- as.formula(modelBaseNoherd)
 
 # Base model + Region (fixed)
-#modelBaseregion <- as.formula(paste0(modelBase, " + regionI"))
+# modelBaseRegion <- as.formula(paste0(modelBase, " + regionI"))
 # Adding region fixed to WCRI
-#modelWCRIregion <- as.formula(paste0(modelWCRI, " + regionI"))
+# modelWCRIRegion <- as.formula(paste0(modelWCRI, " + regionI"))
 
 # ---- Run the models ----------------------------------------------------------
 # *fitBase
-sink('results/fitBase.txt') # Print outputs of fitBase
-'fitBase'
-modelfitBase<- milkZ ~ 1 + cyrsnI + tyrmnI + dgrpI + (ageZ|lacgr) + (leg0|lacgr) + (leg1|lacgr) + (leg2|lacgr) + f(herdI, model = 'iid') + f(cowPeI, model = 'iid') + f(cowI, model = 'generic0', Cmatrix = GRMInv)
-fitBase <- inla(formula = modelfitBase, data = data1,
-               control.compute = list(dic = TRUE,config=TRUE))
 
-save(fitBase,file = "C:/Users/Lenovo/OneDrive/Documents/ihouaga_adgg_spatial/data/cleaned_data/fitBase/fitBase.RData") 
-load(file = "C:/Users/Lenovo/OneDrive/Documents/ihouaga_adgg_spatial/data/cleaned_data/fitBase/fitBase.RData") # to load the R object 
+sink('results/fitBase.txt') # Print outputs of fitBase
+cat('fitBase\n')
+fitBase <- inla(formula = modelBase, data = data1,
+               control.compute = list(dic = TRUE, config=TRUE))
+
+save(fitBase,file = "data/cleaned_data/fitBase/fitBase.RData") 
+load(file = "data/cleaned_data/fitBase/fitBase.RData") # to load the R object 
 
 # *fitWCF
 sink('results/fitWCF.txt') # Print outputs of fitWCF
-'fitWCF'
+cat('fitWCF\n')
 fitWCF <- inla(formula = modelWCF, data = data1,
-               control.compute = list(dic = TRUE,config=TRUE))
+               control.compute = list(dic = TRUE, config=TRUE))
 # save fitWCF as R object
-save(fitWCF,file = "C:/Users/Lenovo/OneDrive/Documents/ihouaga_adgg_spatial/data/cleaned_data/fitWCF/fitWCF.RData") 
-load(file = "C:/Users/Lenovo/OneDrive/Documents/ihouaga_adgg_spatial/data/cleaned_data/fitWCF/fitWCF.RData") # to load the R object 
+save(fitWCF,file = "data/cleaned_data/fitWCF/fitWCF.RData") 
+load(file = "data/cleaned_data/fitWCF/fitWCF.RData") # to load the R object 
 
 # Create a function to summarise precision to variance 
 
@@ -202,7 +214,7 @@ summarise_precision_to_variance = function(x, nSamples = 1000) {
   return(Out)
 }
 
-SummarizeInlaSpdeVars = function(x, nSamples = 1000, name = 'spatial', spde = spdeStat) {
+SummarizeInlaSpdeVars = function(x, nSamples = 1000, name = 'spatial', spde) {
   # Summarize INLA SPDE hyper-parameters
   SpdeParam = inla.spde2.result(inla = x, name = name, spde = spde)
   Samples = matrix(data = numeric(), nrow = nSamples, ncol = 2)
@@ -259,8 +271,8 @@ sink('results/fitWCRI.txt') #Print outputs of fitWCRI
 'fitWCRI'
 fitWCRI <- inla(formula = modelWCRI, data = data1,
                control.compute = list(dic = TRUE, config=TRUE))
-save(fitWCRI,file = "C:/Users/Lenovo/OneDrive/Documents/ihouaga_adgg_spatial/data/cleaned_data/fitWCRI/fitWCRI.RData") 
-load(file = "C:/Users/Lenovo/OneDrive/Documents/ihouaga_adgg_spatial/data/cleaned_data/fitWCRI/fitWCRI.RData") # to load the R object 
+save(fitWCRI,file = "data/cleaned_data/fitWCRI/fitWCRI.RData") 
+load(file = "data/cleaned_data/fitWCRI/fitWCRI.RData") # to load the R object 
 'Summary fitWCRI'
 summary(fitWCRI)
 'sumarize variance fitWCRI'
@@ -273,8 +285,8 @@ summary(fitWCRI)
 sink('results/fitWCRB.txt') #Print outputs of fitWCRB
 fitWCRB <- inla(formula = modelWCRB, data = data1,
                control.compute = list(dic = TRUE, config=TRUE))
-save(fitWCRB,file = "C:/Users/Lenovo/OneDrive/Documents/ihouaga_adgg_spatial/data/cleaned_data/fitWCRB/fitWCRB.RData") 
-load(file = file = "C:/Users/Lenovo/OneDrive/Documents/ihouaga_adgg_spatial/data/cleaned_data/fitWCRB/fitWCRB.RData")
+save(fitWCRB,file = "data/cleaned_data/fitWCRB/fitWCRB.RData") 
+load(file = file = "data/cleaned_data/fitWCRB/fitWCRB.RData")
 
 'fitWCRB'
 'Summary fitWCRB'
@@ -364,7 +376,7 @@ SummarizeInlaSpdeVars(fitWS) #Error "object 'SpdeStat' not found"
 
 #---------Run additional models--------------------------------------------------
 #FitBaseNoherd (B no herd)
-fitBaseNoherd <- inla(formula = modelBaseNoherd_formula, data = data1,
+fitBaseNoherd <- inla(formula = modelBaseNoherd, data = data1,
                 control.compute = list(dic = TRUE,config=TRUE))
 summary(fitBaseNoherd) # DIC=35546.55
 
@@ -389,13 +401,13 @@ fitWCRBNoherd <- inla(formula = modelWCRBNoherd, data = data1,
 summary(fitWCRBNoherd) 
 
 # Base+Region (fixed) B+Region (BR)
-#fitBaseregion <- inla(formula = modelBaseregion, data = data1,
+#fitBaseregion <- inla(formula = modelBaseRegion, data = data1,
                       #control.compute = list(dic = TRUE,config=TRUE)) 
 
 #summary(fitBaseregion)
 
 # WCRI +Region (fixed) WCRI + Region (Fixed)
-#fitWCRIregion <- inla(formula = modelWCRIregion, data = data1,
+#fitWCRIregion <- inla(formula = modelWCRIRegion, data = data1,
                    #control.compute = list(dic = TRUE,config=TRUE)) 
 #table(data1$regionI)
 
@@ -708,6 +720,7 @@ te2 = inla.tmarginal(function(x) (exp(x)), teta2)
 Samples = matrix(data = numeric(), nrow = 1000, ncol = 1)
 Samples[, 1] = inla.rmarginal(n = 1000, te2)
 mean(Samples) # 38.9
+
 #---------Combined Plot Variance components------------------------------------------------
 (p <- ggarrange(Pg,Pr,Ph,Pw,Sv,Sr, ncol = 2, nrow = 3, common.legend = T, legend = "left", align = "h", widths = c(1,1,1)))
 
@@ -890,7 +903,7 @@ ggsave(plot = pE + PaperTheme, filename = "Posterior_distribution_paper.png",
 
 
 
-#-----Plot posterior mean (a) and standard deviation of the estimated spatial effect 
+# ---- Plot posterior mean (a) and standard deviation of the estimated spatial effect ----
 #fitWS
 
 # spatial_est=fitWS$summary.random$fieldID[,1:3]
@@ -920,14 +933,12 @@ EBV_BW <- data.frame(fitWCRI$summary.random$cowI)
 EBV_BWS <- data.frame(fitWS$summary.random$cowI)
 EBV_B <- data.frame(fitBase$summary.random$cowI)
 EBV_S <- data.frame(fitS$summary.random$cowI)
-# Remove EBVs of non-genotyped animals in model BW
+# Remove EBVs of non-phenotyped animals
 sel <- EBV_BW$ID %in% data1$cowI
-
 EBV_BW <- EBV_BW[sel, ]
 dim(EBV_BW)
-# Remove EBVs of non-genotyped animals in model BW
-sel <- EBV_BWS$ID %in% data1$cowI
 
+sel <- EBV_BWS$ID %in% data1$cowI
 EBV_BWS <- EBV_BWS[sel, ]
 dim(EBV_BWS)
 
@@ -940,14 +951,13 @@ EBV_S <- EBV_S[sel, ]
 dim(EBV_S)
 
 # Correlation between EBV_BW and EBV_BWS
-round(cor(EBV_BW$mean,EBV_BWS$mean),2) # 0.79
+round(cor(EBV_BW$mean,EBV_BWS$mean), 2) # 0.79
 
 # Correlation between EBV_B and EBV_BS
 round(cor(EBV_B$mean,EBV_S$mean),2) # 0.67
 
 spde.result = inla.spde.result(fitS, "fieldID", spdeStatS, do.transform = TRUE)
 
-      
 fitWS$marginals.linear.predictor$fieldID
 
 spatial<- data.frame(fitWS$marginals.random)
@@ -959,6 +969,7 @@ index_fitS <- inla.stack.index(stackS,'data1.data')$data
 
 spatial_effect_S <- data.frame(fitS$summary.linear.pred[index_fitS,1])
 colnames(spatial_effect_S)[1] <- "spdeS"
+data1$spdeS<- spatial_effect_S$spdeS
 #fitWS
 index_fitWS <- inla.stack.index(stackWS,'data1.data')$data
 
@@ -1145,7 +1156,7 @@ fitBase_NA1 <- inla(formula = modelfitBase, data = data1_1_NA,
                control.compute = list(dic = TRUE,config=TRUE))
 
 # save fitBase_NA1 as R object
-save(fitBase_NA1,file = "C:/Users/Lenovo/OneDrive/Documents/ihouaga_adgg_spatial/data/cleaned_data/fitBase_pred/fitBase_NA1.RData") 
+save(fitBase_NA1,file = "data/cleaned_data/fitBase_pred/fitBase_NA1.RData") 
  #load(file = "data/cleaned_data/FitBase_pred/FitBase_NA1.RData") # to load the R object 
 pheno_pred1 <- fitBase_NA1$summary.linear.predictor 
 colnames(pheno_pred1)
@@ -1305,7 +1316,7 @@ round((crps_fitBase$CRPS),2) # 0.55
 fitWCF_NA1 <- inla(formula = modeltWCF, data = data1_1_NA,
                     control.compute = list(dic = TRUE,config=TRUE))
 # save fitWCF_NA1 as R object
-save(fitWCF_NA1,file = "C:/Users/Lenovo/OneDrive/Documents/ihouaga_adgg_spatial/data/cleaned_data/fitWCF_pred/fitWCF_NA1.RData") 
+save(fitWCF_NA1,file = "data/cleaned_data/fitWCF_pred/fitWCF_NA1.RData") 
 #load(file = "data/cleaned_data/fitWCF_pred/fitWCF_NA1.RData") # to load the R object 
 
 pheno_pred1 <- fitWCF_NA1$summary.linear.predictor 
@@ -1464,7 +1475,7 @@ round((crps_fitWCF$CRPS),2) # 0.55
 fitWCRI_NA1 <- inla(formula = modelWCRI, data = data1_1_NA,
                   control.compute = list(dic = TRUE,config=TRUE))
 # save fitWCRI_NA1 as R object
-save(fitWCRI_NA1,file = "C:/Users/Lenovo/OneDrive/Documents/ihouaga_adgg_spatial/data/cleaned_data/fitWCRI_pred/fitWCRI_NA1.RData") 
+save(fitWCRI_NA1,file = "data/cleaned_data/fitWCRI_pred/fitWCRI_NA1.RData") 
 #load(file = "data/cleaned_data/fitWCRI_pred/fitWCRI_NA1.RData") # to load the R object 
 pheno_pred1 <- fitWCRI_NA1$summary.linear.predictor 
 colnames(pheno_pred1)
@@ -1620,7 +1631,7 @@ save(fitWCRI_NA4,file = "D:/Results_ADGG_Spatial/fitWCRI_pred/fitWCRI_NA4.RData"
 fitWCRB_NA1 <- inla(formula = modelWCRB, data = data1_1_NA,
                     control.compute = list(dic = TRUE,config=TRUE))
 # save fitWCRB_NA1 as R object
-save(fitWCRB_NA1,file = "C:/Users/Lenovo/OneDrive/Documents/ihouaga_adgg_spatial/data/cleaned_data/fitWCRB_pred/fitWCRB_NA1.RData") 
+save(fitWCRB_NA1,file = "data/cleaned_data/fitWCRB_pred/fitWCRB_NA1.RData") 
 #load(file = "data/cleaned_data/fitWCRB_pred/fitWCRB_NA1.RData") # to load the R object 
 pheno_pred1 <- fitWCRB_NA1$summary.linear.predictor 
 colnames(pheno_pred1)
@@ -1794,7 +1805,7 @@ fitS_NA1= inla(formula = formulaS, data = inla.stack.data(join.stack_NA1),
            control.fixed = list(expand.factor.strategy="inla"), verbose=T)
 
 # save fitS_NA1 as R object
-save(fitS_NA1,file = "C:/Users/Lenovo/OneDrive/Documents/ihouaga_adgg_spatial/data/cleaned_data/fitS_pred/fitS_NA1.RData") 
+save(fitS_NA1,file = "data/cleaned_data/fitS_pred/fitS_NA1.RData") 
 #load(file = "data/cleaned_data/fitS_pred/fitS_NA1.RData") # to load the R object 
 
 #Get the prediction index
@@ -2054,7 +2065,7 @@ fitWS_NA1= inla(formula = formulaWS, data = inla.stack.data(join.stack_NA1),
                control.fixed = list(expand.factor.strategy="inla"), verbose=T)
 
 # save fitWS_NA1 as R object
-save(fitWS_NA1,file = "C:/Users/Lenovo/OneDrive/Documents/ihouaga_adgg_spatial/data/cleaned_data/fitWS_pred/fitWS_NA1.RData") 
+save(fitWS_NA1,file = "data/cleaned_data/fitWS_pred/fitWS_NA1.RData") 
 #load(file = "data/cleaned_data/fitWS_pred/fitWS_NA1.RData") # to load the R object 
 
 #Get the prediction index
@@ -2593,7 +2604,7 @@ summary(data1$birthyear)
 data1_NA<- data1 %>% mutate(milkZ = ifelse(birthyear=="2016" | birthyear=="2017", NA, milkZ))
 sum(is.na(data1_NA$milkZ)) # 1474 Expected
 length(unique(data1_NA$cowI)) # 1894 expected
-fitBaseNoherd_NA <- inla(formula = modelBaseNoherd_formula, data = data1_NA,
+fitBaseNoherd_NA <- inla(formula = modelBaseNoherd, data = data1_NA,
                    control.compute = list(dic = TRUE,config=TRUE))
 
 #Saving forward validation prediction fitBase External Drive
@@ -2800,8 +2811,222 @@ R2_fitWSNoherd #  0.7112
 obs <- pheno$milkZ
 pred<- subset(pheno,select= c(milkZ_pred,milkZ_pred_sd))
 crps_fitWSNoherd <- crps(obs,pred)
-round((crps_fitWSNoherd$CRPS),2) # 0.36
+round((crps_fitWSNoherd$CRPS),2) # 0.36 
+
+
+
+hist(data1$milk)
+summary(data1$milk)
+mean(data1$milk)
+sd(data1$milk)
+8.3-c(1,2,3)*4.3
+8.3+c(1,2,3)*4.3
+
+sel <- data1$milk < 20
+hist(data1$milk[sel])
+summary(data1$milk[sel])
+mean(data1$milk[sel])
+sd(data1$milk[sel])
+
+#-----------------------Principal Components analysis---------------------------
+# Import SNP data (already QCed by Raphael so we will just take it as it is!)
+geno <- read.table(file = "data/original_data/snpref-isi.txt", header = FALSE)
+geno[1:10, 1:10]
+dim(geno) # 1911 664823
+colnames(geno)
+summary(geno$V1) # IDs from 1 to 1916
+colnames(geno)[1] <- "cow"
+
+data1_variable_pca <- data1[,c(1,3,7,18)]
+data1_variable_pca
+
+
+dim(geno)
+# 1911 664823
+str(geno)
+summary(geno)
+# geno$ID as character
+geno$cow <- as.character(geno$cow) 
+str(geno)
+
+# Delete Cases with Missingness  
+geno_nomiss <-  na.omit(geno)
+dim(geno_nomiss)
+# 1911 664823
+#Exclude Categorical Data
+geno_sample <- geno_nomiss[,-c(1)]
+
+#Run PCA
+geno_pca <- prcomp(geno_sample, 
+                     scale = TRUE)
+
+#Summary of Analysis 
+summary(geno_pca)
+
+#Elements of PCA object 
+names(geno_pca)
+
+#Std Dev of Components 
+geno_pca$sdev
+
+#Eigenvectors 
+geno_pca$rotation
+
+#Std Dev and Mean of Variables 
+geno_pca$center
+geno_pca$scale
+
+#Principal Component Scores
+geno_pca$x
+
+
+#Scree Plot of Variance 
+fviz_eig(geno_pca, 
+         addlabels = TRUE,
+         ylim = c(0, 70))
+
+#Biplot with Default Settings
+fviz_pca_biplot(geno_pca)
+
+#Biplot without Labeled Variables
+#fviz_pca_biplot(geno_pca,
+                label="var")
+
+#Biplot with Colored Groups
+#fviz_pca_biplot(geno_pca,
+               # label="var",
+               # habillage = geno_variable$dgrp)
+
+# Biplot with Customized Colored Groups and Variables
+#fviz_pca_biplot(biopsy_pca,
+               # label="var",
+               # habillage = biopsy_nomiss$class, 
+                col.var = "black") +
+ # scale_color_manual(values=c("orange", "purple"))
+
+
+
+# Biplot with Customized Colored Groups and Variables
+#fviz_pca_biplot(biopsy_pca,
+               # label="var",
+                #habillage = biopsy_nomiss$class, 
+               # col.var = "black") +
+  #scale_color_manual(values=c("orange", "purple"))
+
+#-----------------------Animal Ranking------------------------------------------
+# Baseline Model (B)
+EBV_B <- data.frame(fitBase$summary.random$cowI)
+EBV_B <- EBV_B[,1:2]
+names(EBV_B)[2] <- "EBV_B"
+# Remove EBVS of non-phenotyped animals
+sel <- EBV_B$ID %in% data1$cowI
+EBV_B <- EBV_B[sel, ]
+dim(EBV_B)
+
+# WCF
+EBV_WCF <- data.frame(fitWCF$summary.random$cowI)
+EBV_WCF <- EBV_WCF[,1:2]
+names(EBV_WCF)[2] <- "EBV_WCF"
+sel <- EBV_WCF$ID %in% data1$cowI
+EBV_WCF <- EBV_WCF[sel, ]
+dim(EBV_WCF)
+
+#WCRI
+EBV_WCRI <- data.frame(fitWCRI$summary.random$cowI)
+EBV_WCRI <- EBV_WCRI[,1:2]
+names(EBV_WCRI)[2] <- "EBV_WCRI"
+sel <- EBV_WCRI$ID %in% data1$cowI
+EBV_WCRI <- EBV_WCRI[sel, ]
+dim(EBV_WCRI)
+
+#WCRB
+EBV_WCRB <- data.frame(fitWCRB$summary.random$cowI)
+EBV_WCRB <- EBV_WCRB[,1:2]
+names(EBV_WCRB)[2] <- "EBV_WCRB"
+sel <- EBV_WCRB$ID %in% data1$cowI
+EBV_WCRB <- EBV_WCRB[sel, ]
+dim(EBV_WCRB)
+
+
+# S
+
+EBV_S <- data.frame(fitS$summary.random$cowI)
+EBV_S <- EBV_S[,1:2]
+names(EBV_S)[2] <- "EBV_S"
+sel <- EBV_S$ID %in% data1$cowI
+EBV_S <- EBV_S[sel, ]
+dim(EBV_S)
+
+# WS
+
+EBV_WS <- data.frame(fitWS$summary.random$cowI)
+EBV_WS <- EBV_WS[,1:2]
+names(EBV_WS)[2] <- "EBV_WS" 
+sel <- EBV_WS$ID %in% data1$cowI
+EBV_WS <- EBV_WS[sel, ]
+dim(EBV_WS)
+
+#Spatial effect by Cow for model S
+
+SPDE_cow_S <- SPDE_cow[,1:2]
+
+# EBVs and Spatial effect
+
+EBV_Spatial<- data.frame(EBV_B$ID,EBV_B$EBV_B,EBV_WCF$EBV_WCF, EBV_WCRI$EBV_WCRI,EBV_WCRB$EBV_WCRB,EBV_S$EBV_S, EBV_WS$EBV_WS,SPDE_cow_S$spdeS_mean)
+names(EBV_Spatial)[1:8] <- c("ID","EBV_B","EBV_WCF","EBV_WCRI","EBV_WCRB","EBV_S","EBV_WS","Spatial_effect_S")
+
+#Spatial effect by  herd for model S
+
+
+
+#create matrix of correlation coefficients and p-values for EBVs between models
+# How to Create a Correlation Matrix in R (4 Examples) - Statology
+# https://www.statology.org/correlation-matrix-in-r/
+  
+  # Pearson Correlation
+rcorr(as.matrix(EBV_Spatial))
+
+# Spearman's Rank  Correlation
+
+cor(EBV_Spatial, method = "spearman")
+
+
+
+#Animal Ranking
+  
+# Ranking EBV_B
+  EBV_B_Rank <- EBV_B[order(EBV_B$EBV_B,decreasing = TRUE),] 
+
+# Ranking EBV_WCF
+EBV_WCF_Rank <- EBV_WCF[order(EBV_WCF$EBV_WCF,decreasing = TRUE),] 
+
+# Ranking EBV_WCRI
+EBV_WCRI_Rank <- EBV_WCRI[order(EBV_WCRI$EBV_WCRI,decreasing = TRUE),] 
+
+# Ranking EBV_WCRB
+EBV_WCRB_Rank <- EBV_WCRB[order(EBV_WCRB$EBV_WCRB,decreasing = TRUE),]
+
+# Ranking EBV_S
+EBV_S_Rank <- EBV_S[order(EBV_S$EBV_S,decreasing = TRUE),] 
+
+# Ranking EBV_WS
+EBV_WS_Rank <- EBV_WS[order(EBV_WS$EBV_WS,decreasing = TRUE),] 
 
 
 
 
+
+
+
+
+corr1 <- cor.test(x=EBV_B$mean, y=EBV_WCF$mean, method = 'spearman')
+corr1
+corr2 <- cor.test(x=EBV_B$mean, y=EBV_WCRI$mean, method = 'spearman')
+corr2
+
+corr1 <- cor.test(x=EBV_B$mean, y=EBV_S$mean, method = 'spearman')
+corr1
+corr2 <- cor.test(x=EBV_B$mean, y=EBV_S$mean, method = 'spearman')
+corr2
+corr3 <- cor.test(x=EBV_S$mean, y=EBV_WS$mean, method = 'spearman')
+corr3

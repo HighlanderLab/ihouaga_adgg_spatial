@@ -13,7 +13,7 @@
 # ... Isidore's laptop
 baseDir <- ""
 # ... Isidore's Eddie workspace
-baseDir <- ""
+baseDir <- "/Users/ihouaga2/ihouaga_adgg_spatial"
 
 # ... path on ILRI hpc
 baseDir <- ""

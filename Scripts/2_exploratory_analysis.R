@@ -13,7 +13,7 @@
 # ... Isidore's laptop
 baseDir <- ""
 # ... Isidore's Eddie workspace
-baseDir <- ""
+baseDir <- "/Users/ihouaga2/ihouaga_adgg_spatial"
 
 # ... path on ILRI hpc
 baseDir <- ""
@@ -49,7 +49,7 @@ str(data1)
 # Factors
 data1 <- data1 %>%
   mutate_at(.vars = c("cow", "ward", "herd", "cyrsn", "tyrmn", "dgrp", "lac",
-                      "ward_code", "region"),
+                      "ward_code"),
             .funs = as.factor)
 str(data1)
 
@@ -510,9 +510,6 @@ head(data1, n=1)
 
 # ----- Descriptive statistics of coordinates ----------------------------------
 
-setwd("C:/Users/Lenovo/OneDrive/Documents/adgg")
-getwd()
-dir()
 # Import data
 data3<- read.table(file = "data3.dat", header = FALSE)
 colnames(data3) <- c("cow","milk","ward","herd","cyrsn","tyrmn","dgrp","lac","lacgr","age","long","lat", "intercept", "leg1","leg2", "mean", "ward_code")
@@ -632,7 +629,7 @@ library(parallel)
 library(sp)
 library(spData)# Required for spdep
 
-mapwa = readOGR("/Users/Lenovo/OneDrive/Documents/adgg/TZwards.shp")
+mapwa = readOGR("data/shapefiles/wards_2011/TZwards.shp")
 plot(mapwa)
 data_wa=data5
 head(data_wa)
@@ -659,7 +656,7 @@ data5$ward_code <- return1$Ward_Code
 data5$Region_Cod <- return1$Region_Cod
 head(data5)
 #Ploting data on map
-mapwa2 <- st_read("/Users/Lenovo/OneDrive/Documents/adgg/TZwards.shp", quiet = TRUE)
+mapwa2 <- st_read("/data/shapefiles/wards_2011/TZwards.shp", quiet = TRUE)
 class(mapwa2) # class sf
 head(mapwa2)
 plot(mapwa2)
@@ -746,5 +743,7 @@ nrow(data5)
 length(unique(data5$cow))
 length(unique(data5$ward))
 getwd()
+summary(data1$lacgr)
 
 
+head(data1)
