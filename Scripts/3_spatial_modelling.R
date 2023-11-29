@@ -33,7 +33,11 @@ dir()
 
 if (FALSE) {
   requiredPackages <- c(
-    "tidyverse", "verification", "MASS", # tidyverse for data manipulation and verification for Continuous Ranked Probability Score 
+    "tidyverse", # for data manipulation 
+    "fmesher",
+    "inlabru",
+    "verification", # for Continuous Ranked Probability Score
+    "irlba", # for fast PCA
   )
   install.packages(pkgs = requiredPackages)
   install.packages(pkgs = "INLA",
@@ -43,7 +47,9 @@ if (FALSE) {
   inla.upgrade(testing = TRUE)
 }
 library(tidyverse)
-library(INLA) # TODO change to inlabru and add inlabrue estimation above
+library(INLA)
+library(inlabru)
+library(fmesher)
 library(gridExtra) # Visualize random field grid
 library(verification) # Visualize random field grid
 library(lattice)
@@ -52,8 +58,9 @@ library(rgeos)
 library(viridis) # Plot mean and sd spatial effect
 library(fields)# Plot mean and sd spatial effect
 library(ggpubr) # Plot mean and sd spatial effect
-library("MASS") # Pca
-library("factoextra") # Pca
+library(irlba)
+#library("MASS") # Pca
+#library("factoextra") # Pca
 library(Hmisc) # Correlation matrix with P-values
 
 (.packages()) # Check loaded packages
@@ -103,7 +110,7 @@ data1$cowI <- as.numeric(as.character(data1$cow))
 summary(data1$cowI) # we have 1:1906 ids here
 head(data1)
 tail(data1)
-# TODO double check that the above cowI is correct (GG thinks it is )
+# TODO double check that the above cowI is correct (GG thinks it is)
 
 # Standardise response variable and covariates
 # ... INLA uses priors so best to be on the O(1) scale
@@ -297,6 +304,106 @@ summarise_precision_to_variance(fitWCRB)
 sink() # close sink fitWCRB
 
 # -------SPDE-------------------------------------------------------------------
+
+# Priors
+hyperRange <- c(50, 0.8)
+hyperVarSpdeS <- c(sqrt(0.25), 0.5)
+hyperVarSpdeWS <- c(sqrt(0.10), 0.5)
+hyperResVarGWS <- list(theta = list(prior = "pc.prec", param = c(sqrt(0.15),0.5)))
+
+# Mesh
+mapTZA <- getData('GADM', country = "TZA", level= 1) # Get map of Tanzania
+# Extract the border from the map
+TanzaniaBorder <- gUnaryUnion(mapTZA, rep(1, nrow(mapTZA)))
+# Formatting boundary for r-INLA
+TanzaniaBorder <- inla.sp2segment(TanzaniaBorder)
+locations <- cbind(data1$long, data1$lat)
+plot(locations)
+bnd <- fm_nonconvex_hull_inla(locations, 0.5)
+TanzaniaBorder <- fm_as_segm(TanzaniaBorder)
+mesh <- fm_mesh_2d_inla(boundary = list(bnd, TanzaniaBorder),
+                        max.edge = c(0.2, 1))
+if (FALSE) {
+  ggplot() + 
+    geom_fm(data = mesh) + 
+    geom_point(aes(locations[,1], locations[,2]))
+}
+
+data2 <- sf::st_as_sf(x = data1[, c("long", "lat")],
+                      coords = c("long", "lat"))
+data2$milkZ <- data1$milkZ
+
+# Model
+
+spdeStatS = inla.spde2.pcmatern(mesh = mesh, alpha = 2,
+                                prior.range = hyperRange,
+                                prior.sigma = hyperVarSpdeS)
+
+model <- milkZ ~ Intercept(1) + field(geometry, model = matern)
+fit <- bru(model, data2, family = "Gaussian")
+
+
+A = inla.spde.make.A(mesh = mesh, loc = cbind(data1$long, data1$lat) )
+spdeStatS = inla.spde2.pcmatern(mesh = mesh, alpha = 2 ,  prior.range = hyperRange, prior.sigma = hyperVarSpdeS)
+meshIndexS = inla.spde.make.index(name = "fieldID", n.spde = spdeStatS$n.spde) 
+spdeStatWS = inla.spde2.pcmatern(mesh = mesh, alpha = 2 ,  prior.range = hyperRange, prior.sigma = hyperVarSpdeWS)
+meshIndexWS = inla.spde.make.index(name = "fieldID", n.spde = spdeStatWS$n.spde) 
+
+# Make stack
+# StackS
+stackS = inla.stack(data = list(milkZ = data1$milkZ),
+                    A = list(A,1),
+                    effects = list(c(meshIndexS, list(intercept = 1)),
+                                   list(cowI = data1$cowI,herdI = data1$herdI, cowPeI = data1$cowPeI,
+                                        cyrsnI=data1$cyrsnI, tyrmnI=data1$tyrmnI,dgrpI= data1$dgrpI, ageZ=data1$ageZ, lacgr=data1$lacgr, leg0=data1$leg0, leg1=data1$leg1,leg2=data1$leg2)), tag = "data1.data") 
+
+
+
+# StackWS (Ward as random + Spatial effect)
+stackWS = inla.stack(data = list(milkZ = data1$milkZ),
+                     A = list(A,1),
+                     effects = list(c(meshIndexWS, list(intercept = 1)),
+                                    list(cowI = data1$cowI,herdI = data1$herdI, cowPeI = data1$cowPeI,
+                                         cyrsnI=data1$cyrsnI, tyrmnI=data1$tyrmnI,ward_codeI= data1$ward_codeI, dgrpI= data1$dgrpI, ageZ=data1$ageZ, lacgr=data1$lacgr, leg0=data1$leg0, leg1=data1$leg1,leg2=data1$leg2)), tag = "data1.data") 
+
+
+# ModelS
+formulaS <- as.formula(paste0(modelBase, " + f(fieldID, model = spdeStatS)-1"))
+
+
+fitS= inla(formula = formulaS, data = inla.stack.data(stackS),
+           family = "normal", control.predictor =list(A=inla.stack.A(stackS),compute = T),
+           control.family=list(list(hyper=hyperResVarGWS)),
+           control.compute = list(dic=T,cpo=F, config=T), 
+           control.fixed = list(expand.factor.strategy="inla"), verbose=T)
+save(fitS,file = "D:/Results_ADGG_Spatial/fitS/fitS.RData")
+
+
+# fitWS
+
+modelWCRI <- "milkZ ~ 1 + cyrsnI + tyrmnI + dgrpI + (ageZ|lacgr) + (leg0|lacgr) + (leg1|lacgr) + (leg2|lacgr) + f(herdI, model = 'iid') + f(cowPeI, model = 'iid') + f(ward_codeI, model = 'iid') +  f(cowI, model = 'generic0', Cmatrix = GRMInv)"
+
+formulaWS <- as.formula(paste0(modelWCRI, " + f(fieldID, model = spdeStatWS)-1"))
+
+fitWS= inla(formula = formulaWS, data = inla.stack.data(stackWS),
+            family = "normal", control.predictor =list(A=inla.stack.A(stackWS),compute = T),
+            control.family=list(list(hyper=hyperResVarGWS)),
+            control.compute = list(dic=T,cpo=F, config=T), 
+            control.fixed = list(expand.factor.strategy="inla"), verbose=T)
+
+save(fitWS,file = "D:/Results_ADGG_Spatial/fitWS/fitWS.RData") 
+# loading from different directory
+getwd()
+summary(fitBase)
+summary(fitWCF)
+summary(fitWCRI)
+summary(fitWCRB)
+summary(fitS)
+summary(fitWS)
+SummarizeInlaSpdeVars(fitS) #Error "object 'SpdeStat' not found"
+SummarizeInlaSpdeVars(fitWS) #Error "object 'SpdeStat' not found"
+
+# -------SPDE with R-INLA ------------------------------------------------------
 # Make mesh and SPDE 
 # Priors
 # SPDE
@@ -305,12 +412,23 @@ hyperVarSpdeS = c(sqrt(0.25), 0.5)
 hyperVarSpdeWS = c(sqrt(0.10), 0.5)
 hyperResVarGWS = list(theta = list(prior="pc.prec", param=c(sqrt(0.15),0.5)))
 
-mapTZA<-getData('GADM', country="TZA", level= 1) #Get map of Tanzania
+mapTZA <- getData('GADM', country="TZA", level= 1) #Get map of Tanzania
 # Extract the border from the map
-hr.border <- gUnaryUnion(mapTZA, rep(1, nrow(mapTZA)))
+TanzaniaBorder <- gUnaryUnion(mapTZA, rep(1, nrow(mapTZA)))
 # Formatting boundary for r-INLA
-hr.bdry <- inla.sp2segment(hr.border)
-locations = cbind(data1$long, data1$lat)
+TanzaniaBorder <- inla.sp2segment(TanzaniaBorder)
+locations <- cbind(data1$long, data1$lat)
+plot(locations)
+bnd <- fm_nonconvex_hull_inla(locations, 0.5)
+TanzaniaBorder <- fm_as_segm(TanzaniaBorder)
+mesh <- fm_mesh_2d_inla(boundary = list(bnd, TanzaniaBorder),
+                        max.edge = c(0.2, 1))
+if (FALSE) {
+  ggplot() + 
+    geom_fm(data = mesh) + 
+    geom_point(aes(locations[,1], locations[,2]))
+}
+
 mesh = inla.mesh.2d(loc=locations, boundary  = hr.bdry, max.edge = c(0.4,0.8), cutoff = 0.08, offset = c(0.7, 0.7))
 plot(mesh, main="3rd mesh") ; points(data1$long, data1$lat, col="red") # Plotting mesh
 
@@ -2831,15 +2949,47 @@ sd(data1$milk[sel])
 #-----------------------Principal Components analysis---------------------------
 # Import SNP data (already QCed by Raphael so we will just take it as it is!)
 geno <- read.table(file = "data/original_data/snpref-isi.txt", header = FALSE)
+#Save geno as an R object 
+#save(geno,file = "data/cleaned_data/geno.RData") 
+load(file = "data/cleaned_data/geno.RData")
+
 geno[1:10, 1:10]
 dim(geno) # 1911 664823
 colnames(geno)
 summary(geno$V1) # IDs from 1 to 1916
 colnames(geno)[1] <- "cow"
 
-data1_variable_pca <- data1[,c(1,3,7,18)]
-data1_variable_pca
+install.packages(pkg = "irlba")
+library(package = "irlba")
 
+# stats::prcomp(x = geno[1:10, c(2:20)])
+pcasAll <- prcomp_irlba(x = geno[, -1], n = 3)
+summary(pcasAll)
+par(mfrow = c(2, 2))
+plot(pcasAll$x[, 1], pcasAll$x[, 2], pch = 19, cex = 0.1)
+plot(pcasAll$x[, 1], pcasAll$x[, 3], pch = 19, cex = 0.1)
+plot(pcasAll$x[, 2], pcasAll$x[, 3], pch = 19, cex = 0.1)
+par(mfrow = c(1, 1))
+plot(pcasAll$x[, 1], pcasAll$x[, 2], pch = 19, cex = 0.5)
+
+pcas <- as.data.frame(cbind(geno[, 1], pcasAll$x))
+colnames(pcas)[1] <- "cow"
+head(pcas)
+sel <- pcas$cow %in% data1$cow
+pcas <- pcas[sel, ]
+dim(pcas)
+tmp <- data1[, c("cow", "dgrp", "region")]
+tmp <- tmp[!duplicated(tmp), ]
+dim(tmp)
+head(tmp)
+head(pcas)
+pcas <- merge(x = pcas, y = tmp, by = "cow", all.x = TRUE, all.y = FALSE)
+dim(pcas)
+
+plot()
+
+str(data1)
+data1$dgrp
 
 dim(geno)
 # 1911 664823
@@ -2856,62 +3006,47 @@ dim(geno_nomiss)
 #Exclude Categorical Data
 geno_sample <- geno_nomiss[,-c(1)]
 
-#Run PCA
-geno_pca <- prcomp(geno_sample, 
-                     scale = TRUE)
 
-#Summary of Analysis 
-summary(geno_pca)
+dataForPCA<- dist(as.matrix(geno[1:10,2:20]))
 
-#Elements of PCA object 
-names(geno_pca)
+dataForPCA<- dist(as.matrix(geno))
 
-#Std Dev of Components 
-geno_pca$sdev
+dataForPCA <- data.frame(dataForPCA)
+view(geno[1:20,2:20])
 
-#Eigenvectors 
-geno_pca$rotation
+save(dataForPCA,file = "data/cleaned_data/pca/dataForPCA.txt")
 
-#Std Dev and Mean of Variables 
-geno_pca$center
-geno_pca$scale
+### Extract breed names
+#fam <- data.frame(famids=read.table("dataForPCA.mdist.id")[,1])
+### Extract individual names 
+#famInd <- data.frame(IID=read.table("dataForPCA.mdist.id")[,2])
 
-#Principal Component Scores
-geno_pca$x
+## Perform PCA using the cmdscale function 
+# Time intensive step - takes a few minutes with the 4.5K animals
+mds_populations <- cmdscale(dataForPCA,eig=T,5)
 
+## Extract the eigen vectors
+#eigenvec_populations <- cbind(fam,famInd,mds_populations$points)
 
-#Scree Plot of Variance 
-fviz_eig(geno_pca, 
-         addlabels = TRUE,
-         ylim = c(0, 70))
+eigenvec_populations <- data.frame(mds_populations$points)
 
-#Biplot with Default Settings
-fviz_pca_biplot(geno_pca)
+## Proportion of variation captured by each eigen vector
+eigen_percent <- round(((mds_populations$eig)/sum(mds_populations$eig))*100,2)
 
-#Biplot without Labeled Variables
-#fviz_pca_biplot(geno_pca,
-                label="var")
-
-#Biplot with Colored Groups
-#fviz_pca_biplot(geno_pca,
-               # label="var",
-               # habillage = geno_variable$dgrp)
-
-# Biplot with Customized Colored Groups and Variables
-#fviz_pca_biplot(biopsy_pca,
-               # label="var",
-               # habillage = biopsy_nomiss$class, 
-                col.var = "black") +
- # scale_color_manual(values=c("orange", "purple"))
+eigen_percent <- round(((mds_populations$eig)/sum(mds_populations$eig))*100,2)
+eigen_percent <- data.frame(eigen_percent)
+# Visualize PCA
+ggplot(data = eigenvec_populations) +
+  geom_point(mapping = aes(x = `X1`, y = `X2`), show.legend = FALSE ) + 
+  geom_hline(yintercept = 0, linetype="dotted") + 
+  geom_vline(xintercept = 0, linetype="dotted") +
+  labs(title = "PCA of wordwide goat populations",
+       x = paste0("Principal component 1 (",eigen_percent[1,]," %)"),
+       y = paste0("Principal component 2 (",eigen_percent[2,]," %)")) + 
+  theme_minimal()
 
 
 
-# Biplot with Customized Colored Groups and Variables
-#fviz_pca_biplot(biopsy_pca,
-               # label="var",
-                #habillage = biopsy_nomiss$class, 
-               # col.var = "black") +
-  #scale_color_manual(values=c("orange", "purple"))
 
 #-----------------------Animal Ranking------------------------------------------
 # Baseline Model (B)
