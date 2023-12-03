@@ -107,9 +107,13 @@ geno <- read.table(file = "data/original_data/snpref-isi.txt", header = FALSE)
 geno[1:10, 1:10]
 dim(geno) # 1911 664823
 colnames(geno)
+tail(geno, n=2)
 summary(geno$V1) # IDs from 1 to 1916
+tail(geno$V1)
 colnames(geno)[1] <- "cow"
-
+#Save geno_raw
+geno_raw <- geno
+#save(geno_raw, file = "data/cleaned_data/geno_raw.RData")
 # ---- Fix coordinates -------------------------------------------------------
 
 # Based on preliminary exploratory analysis we found these mistakes
@@ -176,7 +180,7 @@ map <- st_read(dsn = "data/shapefiles/wards_2011/TZwards.shp")
 class(map) # class sf and data.frame
 head(map)
 if (FALSE) {
-  plot(map) # this takes quite a bit of time so we comment it out by default
+  # plot(map) # this takes quite a bit of time so we comment it out by default
   ggplot(map) +
     geom_sf() +
     geom_sf_text(data = map, aes(label = Ward_Code), size = 3, colour = "black") +
@@ -291,13 +295,20 @@ sum(is.na(data1)) # 0
 
 # ---- Remove non-genotyped cows and renumber IDs ------------------------------
 
+# INLABru can't handle genotyped animals with missing phenotypes
+#Let's remove first genotypes of animals withouth phenotype
+
+sel <- geno$cow %in% data1$cow
+geno <- geno[sel,]
+dim(geno)
+summary(geno$cow) # ID numbered from 1:1911
 # In GBLUP we can only work with genotyped animals - non-genotyped animals will
 # hence be removed (see later),
-
+tail(geno$cow,n=5)
 # First encode genotyped animals as 1:n
 genoCows <- data.frame(cowOld = geno$cow, cow = 1:nrow(geno))
 geno$cow <- genoCows$cow # overwritting the old code with the new (backup is in genoCows)
-
+summary(geno$cow) # ID numbered from 1:1894
 # Save different cow IDs as a backup
 write.csv(genoCows, file = "data/cleaned_data/genoCows_different_id.csv")
 
@@ -310,25 +321,7 @@ head(data1, n = 2)
 
 # ... cows in geno data, but not in phenotype data
 tmp <- !genoCows$cowOld %in% data1$cow
-genoCows[tmp, ]
-#       cow cowIId
-# 105   106    105
-# 623   626    623
-# 784   787    784
-# 786   789    786
-# 1107 1111   1107
-# 1108 1112   1108
-# 1109 1113   1109
-# 1322 1326   1322
-# 1860 1865   1860
-# 1862 1867   1862
-# 1866 1871   1866
-# 1867 1872   1867
-# 1907 1912   1907
-# 1908 1913   1908
-# 1909 1914   1909
-# 1910 1915   1910
-# 1911 1916   1911
+genoCows[tmp, ] # Zero cows because already removed
 
 # ... cows in phenotype data, but not in genotype data
 tmp <- !data1$cow %in% genoCows$cowOld
@@ -344,6 +337,11 @@ sel <- data1$cow %in% genoCows$cowOld
 data1 <- data1[sel, ]
 sum(sel); nrow(data1); length(unique(data1$cow)) # 19375, 19375, 1894
 
+#Save geno
+summary(geno$cow)
+dim(geno) # 1894 x 664823
+save(geno, file = "data/cleaned_data/geno.RData")
+
 # Recode phenotyped animals into 1:n according to geno 1:n codes
 data1$cowOld <- data1$cow # saving the old coding
 sel <- match(data1$cow, table = genoCows$cowOld)
@@ -353,14 +351,15 @@ tail(data1[, c("cow", "cowOld")])
 
 genoCows[genoCows$cowOld %in% c(296, 860), ]
 
-nrow(genoCows) # 1911
+nrow(genoCows) # 1894
 length(unique(data1$cow)) # 1894
 
 colnames(geno)[1:10]
 colnames(geno)[(ncol(geno)-10):ncol(geno)]
 
 # ---- Build and EXPORT GRM ----------------------------------------------------
-
+# Remove row names from geno
+rownames(geno) <- NULL
 geno <- as.matrix(geno[, -1])
 nMarker <- ncol(geno) # 664822
 alleleFreq <- colMeans(geno) / 2
@@ -371,11 +370,13 @@ for (marker in 1:nMarker) {
 }
 k <- 2 * sum(alleleFreq * (1 - alleleFreq))
 GRM <- tcrossprod(geno) / k
-dim(GRM) # 1911 x 1911
+dim(GRM) # 1894 x 1894
 GRM[1:5, 1:5]
 hist(diag(GRM))
 hist(GRM[lower.tri(GRM)])
 # looks OK!
+GRM[1890:1894, 1890:1894]
+save(GRM, file = "data/cleaned_data/GRM.RData")
 
 # Get inverse
 # ... add tiny value to diagonal to make GRM invertible
