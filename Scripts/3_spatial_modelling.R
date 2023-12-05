@@ -59,9 +59,10 @@ library(viridis) # Plot mean and sd spatial effect
 library(fields)# Plot mean and sd spatial effect
 library(ggpubr) # Plot mean and sd spatial effect
 library(irlba)
+library(Hmisc) # Correlation matrix with P-values
 #library("MASS") # Pca
 #library("factoextra") # Pca
-library(Hmisc) # Correlation matrix with P-values
+
 
 (.packages()) # Check loaded packages
 
@@ -80,7 +81,7 @@ data1 <- data1 %>%
                       "lacgr", "ward_code", "region"),
             .funs = as.factor)
 str(data1)
-summary(data1$herdI)
+summary(data1$herd)
 data1$herdI <- as.numeric(data1$herd) # these codes will now be 1:n
 data1$ward_codeI <- as.numeric(data1$ward_code) # these codes will now be 1:n
 data1$cowPe <- data1$cow # cow permanent environment
@@ -101,13 +102,15 @@ load(file = "data/cleaned_data/ward_neighbours_precision_matrix.RData")
 # Read in the genomic relationship matrix
 load(file = "data/cleaned_data/GRMInv.RData")
 str(GRMInv)
-dim(GRMInv) # 1911 x 1911
+dim(GRMInv) # 1894 x 1894
 class(GRMInv)
+head(GRMInv)
+#rm(nb.map,nb.matrix, nb.matrixScaled)
 # Now we can code the cows in pheno data correctly
 data1$cow <- factor(data1$cow, levels = 1:nrow(GRMInv))
 summary(as.numeric(levels(data1$cow))) # we need 1:1911 numbers here!
 data1$cowI <- as.numeric(as.character(data1$cow))
-summary(data1$cowI) # we have 1:1906 ids here
+summary(data1$cowI) # we have 1:1894 ids here
 head(data1)
 tail(data1)
 # TODO double check that the above cowI is correct (GG thinks it is)
@@ -127,14 +130,14 @@ summary(data1$leg0)
 summary(data1$leg1)
 summary(data1$leg2)
 
-# ---- Specify models ----------------------------------------------------------
+# ---- Specify models R-INLA ----------------------------------------------------------
 
 # Base model for milk - All effects without ward_code/ward_codeI 
-modelBase <- "milkZ ~ 1 + cyrsnI + tyrmnI + dgrpI + (ageZ|lacgr) +
-                          (leg0|lacgr) + (leg1|lacgr) + (leg2|lacgr) +
-                          f(herdI, model = 'iid') +
-                          f(cowPeI, model = 'iid') +
-                          f(cowI, model = 'generic0', Cmatrix = GRMInv)"
+modelBase <- "milkZ ~ 1 + cyrsn + tyrmn + dgrp + (ageZ|lacgr) +
+                      (leg0|lacgr) + (leg1|lacgr) + (leg2|lacgr) +
+                      f(herdI, model = 'iid') +
+                      f(cowPeI, model = 'iid') +
+                      f(cowI, model = 'generic0', Cmatrix = GRMInv)"
 
 # Adding ward_code as a fixed effect
 modelWCF <- as.formula(paste0(modelBase, " + ward_code"))
@@ -151,7 +154,7 @@ modelBase <- as.formula(modelBase)
 #Base model without herd effect and without word effect
 
 # Base model for milk - All effects without ward_code/ward_codeI 
-modelBaseNoherd <- " milkZ ~ 1 + cyrsnI + tyrmnI + dgrpI + (ageZ|lacgr) +
+modelBaseNoherd <- " milkZ ~ 1 + cyrsn + tyrmn + dgrp + (ageZ|lacgr) +
                              (leg0|lacgr) + (leg1|lacgr) + (leg2|lacgr) +
                              f(cowPeI, model = 'iid') +
                              f(cowI, model = 'generic0', Cmatrix = GRMInv)"
@@ -171,6 +174,69 @@ modelBase <- as.formula(modelBaseNoherd)
 # modelBaseRegion <- as.formula(paste0(modelBase, " + regionI"))
 # Adding region fixed to WCRI
 # modelWCRIRegion <- as.formula(paste0(modelWCRI, " + regionI"))
+
+
+# ---- Specify models R-INLABru ----------------------------------------------------------
+# Base model for milk - All effects without ward_code/ward_codeI 
+modelBase <- milkZ ~ Intercept(1) + cyrsn + tyrmn + f(herdI, model = 'iid') + dgrp + (ageZ|lacgr)
+
+
++ (ageZ|lacgr)
+
+# (ageZ|lacgr) 
+
+#Error in match.names(clabs, names(xi)) : 
+#names do not match previous names
+# In Ops.factor(ageZ, lacgr) : ‘|’ not meaningful for factors 
+
+
+ + (ageZ|lacgr) +
+  (leg0|lacgr) + (leg1|lacgr) + (leg2|lacgr) +
+  f(herdI, model = 'iid') +
+  f(cowPeI, model = 'iid') +
+  f(cowI, model = 'generic0', Cmatrix = GRMInv) 
+
+#+ field(geometry, model = matern)
+
+fitBase <- bru(modelBase, data2, family = "Gaussian")
+summary(fitBase)
+
+#Error in component_list.list(components, lhoods = lhoods, .envir = .envir)
+#Duplicated component labels detected: 'f'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Adding ward_code as a fixed effect
+modelWCF <- as.formula(paste0(modelBase, " + ward_code"))
+
+# Adding ward_codeI as a random IID effect
+modelWCRI <- as.formula(paste0(modelBase, " + f(ward_codeI, model = 'iid')"))
+
+# Adding ward_codeI as a random Besag effect
+modelWCRB <- as.formula(paste0(modelBase, " + f(ward_codeI, model = 'besag', graph = nb.map, scale.model = TRUE)"))
+
+modelBase <- as.formula(modelBase)
+
+
+
+
+
+
 
 # ---- Run the models ----------------------------------------------------------
 # *fitBase
@@ -303,13 +369,14 @@ summary(fitWCRB)
 summarise_precision_to_variance(fitWCRB)
 sink() # close sink fitWCRB
 
-# -------SPDE-------------------------------------------------------------------
+# -------SPDE_R-INLABru-------------------------------------------------------------------
 
 # Priors
 hyperRange <- c(50, 0.8)
 hyperVarSpdeS <- c(sqrt(0.25), 0.5)
 hyperVarSpdeWS <- c(sqrt(0.10), 0.5)
 hyperResVarGWS <- list(theta = list(prior = "pc.prec", param = c(sqrt(0.15),0.5)))
+
 
 # Mesh
 mapTZA <- getData('GADM', country = "TZA", level= 1) # Get map of Tanzania
@@ -329,18 +396,160 @@ if (FALSE) {
     geom_point(aes(locations[,1], locations[,2]))
 }
 
+#For INLABru define matern
+matern <-
+  inla.spde2.pcmatern(mesh,
+                      prior.sigma = c(sqrt(0.25), 0.5),
+                      prior.range = c(50, 0.8)
+  )
+
+
 data2 <- sf::st_as_sf(x = data1[, c("long", "lat")],
                       coords = c("long", "lat"))
 data2$milkZ <- data1$milkZ
+data2$cyrsn <- data1$cyrsn
+data2$tyrmn <- data1$tyrmn
+data2$dgrp <- data1$dgrp
+data2$lacgr <- data1$lacgr
+data2$ageZ <- data1$ageZ
+data2$herd <- data1$herd
+data2$ward_code <- data1$ward_code
+# data2$herdI <- data1$herdI
+data2$cow <- data1$cow
+data2$cowI <- data1$cowI
+data2$cowPe <- data1$cowPe
+# data2$cowPeI <- data1$cowPeI
+# data2$leg0 <- data1$leg0
+data2$leg1 <- data1$leg1
+data2$leg2 <- data1$leg2
+length(unique(data2$geometry)) #1385 couples of GPS vs 1386 herds (2 herds at same location)
+# ModelBase without herd
 
-# Model
+modelBaseComp <- ~ Intercept(1) +
+  fixed_effects(main = ~ cyrsn + tyrmn + dgrp + lacgr +
+                         ageZ:lacgr + leg1:lacgr + leg2:lacgr, model = "fixed") +
+  perm(main = cowPe, model = 'iid') + ward(main = ward_code, model = 'iid') +
+  animal(main = cow, model = 'generic', Cmatrix = GRMInv)
 
-spdeStatS = inla.spde2.pcmatern(mesh = mesh, alpha = 2,
-                                prior.range = hyperRange,
-                                prior.sigma = hyperVarSpdeS)
+modelBaseFormula <- milkZ ~ .
 
-model <- milkZ ~ Intercept(1) + field(geometry, model = matern)
-fit <- bru(model, data2, family = "Gaussian")
+fit <- bru(modelBaseComp,
+           like(family = "Gaussian",
+                modelBaseFormula,
+                data = data2))
+summary(fit) #DIC: 32650.50
+fit$summary.random$fixed_effects
+fit$summary.random$perm
+fit$summary.random$animal
+
+# ModelBase + herd
+
+modelBaseherd <- ~ Intercept(1) +
+  fixed_effects(main = ~ cyrsn + tyrmn + dgrp + lacgr +
+                  ageZ:lacgr + leg1:lacgr + leg2:lacgr, model = "fixed") +
+  perm(main = cowPe, model = 'iid') + ward(main = ward_code, model = 'iid') +
+  animal(main = cow, model = 'generic', Cmatrix = GRMInv) + 
+  herd(main=herd, model = 'iid')
+
+modelBaseherdFormula <- milkZ ~ .
+
+fit_herd <- bru(modelBaseherd,
+           like(family = "Gaussian",
+                modelBaseherdFormula,
+                data = data2))
+
+summary(fit_herd) #DIC: 32604.35
+fit_herd$summary.random$fixed_effects
+fit_herd$summary.random$perm
+fit_herd$summary.random$animal
+fit_herd$summary.random$herd
+
+
+# ModelBase  + Spatial effect
+#Test
+modelBaseS <- ~ Intercept(1) +
+  field(geometry, model = matern)
+
+modelBaseSFormula <- milkZ ~ .
+
+fitS <- bru(modelBaseS,
+            like(family = "Gaussian",
+                 modelBaseSFormula,
+                 data = data2))
+
+summary(fitS) 
+
+model <- milkZ ~ 1 + 
+field(geometry, model = matern)
+
+fitmodel <- bru(model, data2, family = "Gaussian")
+summary(fitmodel)
+
+
+
+
+############################################################################
+
+modelBaseS <- ~ Intercept(1) +
+  fixed_effects(main = ~ cyrsn + tyrmn + dgrp + lacgr +
+                  ageZ:lacgr + leg1:lacgr + leg2:lacgr, model = "fixed") +
+  perm(main = cowPe, model = 'iid') + ward(main = ward_code, model = 'iid') +
+  animal(main = cow, model = 'generic', Cmatrix = GRMInv) +
+  field(geometry, model = matern)
+
+modelBaseSFormula <- milkZ ~ .
+
+fitS <- bru(modelBaseS,
+           like(family = "Gaussian",
+                modelBaseSFormula,
+                data = data2, verbose=TRUE))
+
+summary(fitS) #DIC: 32604.35
+fitS$summary.random$fixed_effects
+fitS$summary.random$perm
+fitS$summary.random$animal
+fitS$summary.random$herd
+fitS$summary.random$field
+
+
+model <- milkZ ~ cyrsn + tyrmn + dgrp + lacgr + ageZ:lacgr + leg1:lacgr + leg2:lacgr
+lm(model, data = data2)
+
++ field(geometry, model = matern)
+
+fitmodel <- bru(model, data2, family = "Gaussian")
+summary(fitmodel)
+
+
+
+
+formulaS <- milkZ ~ Intercept(1) + cyrsnI + tyrmnI + dgrpI + (ageZ|lacgr) +
+                          (leg0|lacgr) + (leg1|lacgr) + (leg2|lacgr) +
+                          f(herdI, model = 'iid') +
+                          f(cowPeI, model = 'iid') +
+                          f(cowI, model = 'generic0', Cmatrix = GRMInv) + 
+                          field(geometry, model = matern)
+
+
+
+fitS <- bru(formulaS, data2, family = "Gaussian")
+summary(fitS)
+
+
+# ModelBase
+modelBase <- milkZ ~ Intercept(1) + cyrsnI(1) + tyrmnI + dgrpI + f(herdI, model = 'iid') +  f(cowPeI, model = 'iid') 
+fitBase <- bru(modelBase, data2, family = "Gaussian")
+
+summary(fitBase)
+
+
+
+
+
+
+
+
+
 
 
 A = inla.spde.make.A(mesh = mesh, loc = cbind(data1$long, data1$lat) )
@@ -2983,38 +3192,195 @@ tmp <- tmp[!duplicated(tmp), ]
 dim(tmp)
 head(tmp)
 head(pcas)
-pcas <- merge(x = pcas, y = tmp, by = "cow", all.x = TRUE, all.y = FALSE)
+pcas <- merge(x = pcas, y = tmp, by = "cow", all.x = TRUE)
 dim(pcas)
-
+str(pcas)
 plot()
 
-str(data1)
-data1$dgrp
 
-dim(geno)
-# 1911 664823
-str(geno)
-summary(geno)
-# geno$ID as character
-geno$cow <- as.character(geno$cow) 
-str(geno)
-
-# Delete Cases with Missingness  
-geno_nomiss <-  na.omit(geno)
-dim(geno_nomiss)
-# 1911 664823
-#Exclude Categorical Data
-geno_sample <- geno_nomiss[,-c(1)]
+# Visualize PCA by breed Proportion dgrp
+# PC1 vs PC2
+ggplot(data = pcas) +
+  geom_point(mapping = aes(x = `PC1`, y = `PC2`,color = dgrp), show.legend = TRUE ) + 
+  geom_hline(yintercept = 0, linetype="dotted") + 
+  geom_vline(xintercept = 0, linetype="dotted") +
+  labs(title = "PCA of SNP genotypes by breed proportion",
+       x = paste0("PC1(3.1%)"),
+       y = paste0("PC2(0.8%)")) + 
+  theme_minimal()
 
 
-dataForPCA<- dist(as.matrix(geno[1:10,2:20]))
+# PC1 vs PC3
+ggplot(data = pcas) +
+  geom_point(mapping = aes(x = `PC1`, y = `PC3`,color = dgrp), show.legend = TRUE ) + 
+  geom_hline(yintercept = 0, linetype="dotted") + 
+  geom_vline(xintercept = 0, linetype="dotted") +
+  labs(title = "PCA of SNP genotypes",
+       x = paste0("PC1(3.1%)"),
+       y = paste0("PC3(0.5%)")) + 
+  theme_minimal()
 
-dataForPCA<- dist(as.matrix(geno))
+# PC2 vs PC3
+ggplot(data = pcas) +
+  geom_point(mapping = aes(x = `PC2`, y = `PC3`,color = dgrp), show.legend = TRUE ) + 
+  geom_hline(yintercept = 0, linetype="dotted") + 
+  geom_vline(xintercept = 0, linetype="dotted") +
+  labs(title = "PCA of SNP genotypes",
+       x = paste0("PC2(0.8%)"),
+       y = paste0("PC3(0.5%)")) + 
+  theme_minimal()
 
-dataForPCA <- data.frame(dataForPCA)
-view(geno[1:20,2:20])
 
-save(dataForPCA,file = "data/cleaned_data/pca/dataForPCA.txt")
+# Visualize PCA by region
+# PC1 vs PC2
+ggplot(data = pcas) +
+  geom_point(mapping = aes(x = `PC1`, y = `PC2`,color = region), show.legend = TRUE ) + 
+  geom_hline(yintercept = 0, linetype="dotted") + 
+  geom_vline(xintercept = 0, linetype="dotted") +
+  labs(title = "PCA of SNP genotypes across regions",
+       x = paste0("PC1(3.1%)"),
+       y = paste0("PC2(0.8%)")) + 
+  theme_minimal()
+
+
+# PC1 vs PC3
+ggplot(data = pcas) +
+  geom_point(mapping = aes(x = `PC1`, y = `PC3`,color = region), show.legend = TRUE ) + 
+  geom_hline(yintercept = 0, linetype="dotted") + 
+  geom_vline(xintercept = 0, linetype="dotted") +
+  labs(title = "PCA of SNP genotypes",
+       x = paste0("PC1(3.1%)"),
+       y = paste0("PC3(0.5%)")) + 
+  theme_minimal()
+
+# PC2 vs PC3
+ggplot(data = pcas) +
+  geom_point(mapping = aes(x = `PC2`, y = `PC3`,color = dgrp), show.legend = TRUE ) + 
+  geom_hline(yintercept = 0, linetype="dotted") + 
+  geom_vline(xintercept = 0, linetype="dotted") +
+  labs(title = "PCA of SNP genotypes",
+       x = paste0("PC2(0.8%)"),
+       y = paste0("PC3(0.5%)")) + 
+  theme_minimal()
+
+
+table(data1$dgrp,data1$region)
+#Breed proportion in First column
+#    1    2    3    4
+#1  497 4663 1076 1230
+#2 2248 3012 1704 1185
+#3 1495  704  622  237
+#4  307  103  272   20
+
+
+#-----------------------GRM vs Spatial Relationship Matrix---------------------------
+# LOAD GRM
+load(file = "data/cleaned_data/GRM.RData")
+dim(GRM)
+colnames(GRM) <- 1:ncol(GRM)
+rownames(GRM) <- 1:nrow(GRM)
+class(GRM) # "matrix" "array"
+GRM_df <- data.frame(i=rep(row.names(GRM),ncol(GRM)),
+                j=rep(colnames(GRM),each=nrow(GRM)),
+                score=as.vector(GRM))
+
+cow_herd <- data1[,c(1,4)]
+length(unique(cow_herd$cow)) #1894
+length(unique(cow_herd$herd)) #1386
+
+
+# Add herd id for cow i
+cow_herd_i <- cow_herd
+names(cow_herd_i)[1] <- "i"
+names(cow_herd_i)[2] <- "herd_i"
+
+cow_herd_j <- cow_herd
+names(cow_herd_j)[1] <- "j"
+names(cow_herd_j)[2] <- "herd_j"
+
+dim(GRM_df)
+#Adding gps coordinates to herds
+herd_GPS <- data1[,c(4,11:12)]
+herd_GPS <- distinct(herd_GPS)
+dim(herd_GPS)
+
+
+# Add GPS for herd i
+herd_GPS_i <- herd_GPS
+names(herd_GPS_i)[1] <- "herd_i"
+names(herd_GPS_i)[2] <- "long_i"
+names(herd_GPS_i)[3] <- "lat_i"
+# Add GPS for herd j
+herd_GPS_j <- herd_GPS
+names(herd_GPS_j)[1] <- "herd_j"
+names(herd_GPS_j)[2] <- "long_j"
+names(herd_GPS_j)[3] <- "lat_j"
+
+#Merge Cow-herdi with herd_i GPS
+head(cow_herd_i) 
+head(herd_GPS_i)
+Merge1 <- merge(herd_GPS_i, cow_herd_i, by="herd_i", all.x = TRUE)
+Merge1<- distinct(Merge1)
+
+#Merge Cow-herdj with herd_j GPS
+head(cow_herd_j) 
+head(herd_GPS_j)
+Merge2 <- merge(herd_GPS_j, cow_herd_j, by="herd_j", all.x = TRUE)
+Merge2<- distinct(Merge2)
+dim(distinct(GRM_df))
+
+Merge3<- merge(GRM_df, Merge1, by="i", all.x = TRUE)
+dim(distinct(Merge3))
+head(Merge3)
+head(Merge2)
+
+Merge4 <- merge(Merge2, Merge3, by="j", all.x = TRUE) 
+
+GRM_df_final <- Merge4 %>% mutate(dij=sqrt((long_i-long_j)^2 + (lat_i-lat_j)^2))
+
+summary(GRM_df_final$dij)
+# Let's group relationship (score) by herd_i and herd_j
+GRM_df_final$herd_ij <- with(GRM_df_final, paste0(herd_i, "-", herd_j))
+
+GRM_SRM <- GRM_df_final %>%  group_by(herd_ij) %>%
+  summarise(mean_score = mean(score), mean_dij =mean(dij), n = n())
+
+length(unique(GRM_SRM$herd_ij))
+save(GRM_SRM,file = "data/cleaned_data/GRM_SRM.RData")
+
+summary(GRM_SRM)
+head(GRM_SRM)
+#plot(GRM_df_final$score~ GRM_df_final$dij)
+
+GRM_Plot<- ggplot(data = GRM_SRM) +
+  geom_line(mapping = aes(x = `mean_dij`, y = `mean_score`)) + 
+  geom_hline(yintercept = 0, linetype="dotted") + 
+  geom_vline(xintercept = 0, linetype="dotted") +
+  labs(title = "Genomic realtionship kinship versus distance between herds",
+       x = paste0("Euclidian distance between herds"),
+       y = paste0("Genomic relationship coefficient")) + 
+  theme_minimal()
+
+
+ggsave(plot = GRM_Plot + PreseTheme, filename = "GRM_SRM_Presentation.png",
+       height = PreseSize, width = PreseSize * 1.5, unit = "cm") #Presentation
+
+
+ggsave(plot = GRM_Plot + PaperTheme, filename = "GRM_SRM__paper.png",
+       height = PaperSize, width = PaperSize * 1.5, unit = "cm") # Paper
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ### Extract breed names
 #fam <- data.frame(famids=read.table("dataForPCA.mdist.id")[,1])
