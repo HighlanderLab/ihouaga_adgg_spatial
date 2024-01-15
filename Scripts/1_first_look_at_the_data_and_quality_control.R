@@ -10,10 +10,15 @@
 # ---- Setup -------------------------------------------------------------------
 
 # Working directory
-# ... Isidore's laptop
-baseDir <- ""
-# ... Isidore's Eddie workspace
+# ... Isidore's window's laptop
+getwd()
+baseDir <- "C:/Users/Lenovo/OneDrive/Documents/ihouaga_adgg_spatial"
+
+# ... Isidore's Mack laptop
 baseDir <- "/Users/ihouaga2/ihouaga_adgg_spatial"
+
+# ... Isidore's Eddie workspace
+baseDir <- ""
 
 # ... path on ILRI hpc
 baseDir <- ""
@@ -23,6 +28,7 @@ baseDir <- "/Users/ggorjanc/Storages/GitBox/HighlanderLab/ihouaga_adgg_spatial_u
 
 # Change working directory
 setwd(dir = baseDir)
+getwd()
 dir()
 
 # ---- Installing and load packages --------------------------------------------
@@ -195,7 +201,6 @@ sf_use_s2(use_s2 = FALSE)
 nb.map <- poly2nb(map) # Construct neighbours list from polygon list
 nb2INLA(nb = nb.map, file = "data/cleaned_data/ward_neighbours.txt")
 nb.map <- inla.read.graph(filename = "data/cleaned_data/ward_neighbours.txt")
-
 nb.matrix <- -inla.graph2matrix(nb.map) # Convert graph to matrix
 dim(nb.matrix) # 3644 by 3644
 nb.matrix[1:5, 1:5]
