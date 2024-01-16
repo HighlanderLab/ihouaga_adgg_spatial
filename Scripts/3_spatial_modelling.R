@@ -3149,7 +3149,7 @@ pred<- subset(predictBS3,select= c(milkZ_pred,milkZ_pred_sd)) # 0.84
 crps_fitBHS <- crps(obs,pred)
 round((crps_fitBHS$CRPS),2) # 5.77
 
-#------------------------------Cross-validation---------------------------------
+#------------------------------Cross-validation_Corrected Phenotype---------------------------------
 #-----------------Cross-validation fitB-----------------------------------------
 # Masking phenotypes of cows in dgrp 1 (Breed proportion class 1)
 #dgrp1 masked
@@ -3663,6 +3663,441 @@ round(cor(EBV_YDBS$YDBS_cow,EBV_YDBS$EBV_BS),2) # 0.01
 Acc_BS <- round(( + + +)/4,2)
 Acc_BS #
 
+#------------------------------Cross-validation_Predicted Pheno Vs Obs_Pheno----
+#-----------------Cross-validation fitB-----------------------------------------
+# Masking phenotypes of cows in dgrp (Breed proportion class)
+#dgrp1 masked
+#Let's create unique ID (merge_ID) columns for data merging
+data2_merge_ID <- data2
+data2_merge_ID$merge_ID <- 1:nrow(data2_merge_ID)
+data2_1_NA<- data2_merge_ID %>% mutate(milkZ = ifelse(dgrp == "1", NA, milkZ))
+sum(is.na(data2$milkZ)) # 0
+sum(is.na(data2_1_NA$milkZ)) #7466
+length(unique(data2_1_NA$cow)) # 1894
+length(unique(data2$cow)) # 1894
+
+predictB_2_1_NA <- predict(fitB, newdata=data2_1_NA,
+                    formula= ~ fixed_effects + perm + ward + animal)
+colnames(predictB_2_1_NA)
+pheno1 <- data.frame(predictB_2_1_NA)
+pheno1 <- pheno1[,c("merge_ID","mean")]
+dim(pheno1)
+class(pheno1)
+data2_pheno1 <- data.frame(data2_merge_ID)
+data2_pheno1 <- data2_pheno1[,c("merge_ID","milkZ","dgrp")]
+summary(data2_pheno1)
+colnames(data2_pheno1)
+summary(data2_merge_ID$milkZ)
+class(data2_pheno1)
+class(pheno1)
+dim(data2_pheno1)
+dim(pheno1)
+length(unique(data2_pheno1$merge_ID))
+length(unique(pheno1$merge_ID))
+
+pheno1_final <- merge(data2_pheno1,pheno1, by="merge_ID", all.x=TRUE)
+
+dim(pheno1_final)
+Pheno_1_NA <- subset(pheno1_final, dgrp=="1")
+summary(Pheno_1_NA$dgrp)
+Accu1 <- round(cor(Pheno_1_NA$milkZ,Pheno_1_NA$mean),2) # 0.83
+Accu1 # 0.83
+
+#dgrp2 masked
+data2_2_NA<- data2 %>% mutate(milkZ = ifelse(dgrp == "2", NA, milkZ))
+sum(is.na(data2$milkZ)) # 0
+sum(is.na(data2_2_NA$milkZ)) #8149
+length(unique(data2_2_NA$cow)) # 1894
+length(unique(data2$cow)) # 1894
+
+predictB_2_2_NA <- predict(fitB, newdata=data2_2_NA,
+                           formula= ~ fixed_effects + perm + ward + animal)
+colnames(predictB_2_2_NA)
+
+summary(data2$milkZ)
+summary(predictB_2_2_NA$mean)
+predictB_2_2_NA$milkZ <- data2$milkZ
+
+Pheno_2_NA <- subset(predictB_2_2_NA, dgrp=="2")
+summary(Pheno_2_NA$dgrp)
+Accu2 <- round(cor(Pheno_2_NA$milkZ,Pheno_2_NA$mean),2)
+Accu2 # 0.85
+
+#dgrp3 masked
+data2_3_NA<- data2 %>% mutate(milkZ = ifelse(dgrp == "3", NA, milkZ))
+sum(is.na(data2$milkZ)) # 0
+sum(is.na(data2_3_NA$milkZ)) # 3058
+length(unique(data2_3_NA$cow)) # 1894
+length(unique(data2$cow)) # 1894
+
+predictB_2_3_NA <- predict(fitB, newdata=data2_3_NA,
+                           formula= ~ fixed_effects + perm + ward + animal)
+colnames(predictB_2_3_NA)
+
+summary(data2$milkZ)
+summary(predictB_2_3_NA$mean)
+predictB_2_3_NA$milkZ <- data2$milkZ
+
+Pheno_3_NA <- subset(predictB_2_3_NA, dgrp=="3")
+summary(Pheno_3_NA$dgrp)
+Accu3 <- round(cor(Pheno_3_NA$milkZ,Pheno_3_NA$mean),2) # 0.
+Accu3 # 0.83
+
+
+#dgrp4 masked
+data2_4_NA<- data2 %>% mutate(milkZ = ifelse(dgrp == "4", NA, milkZ))
+sum(is.na(data2$milkZ)) # 0
+sum(is.na(data2_4_NA$milkZ)) # 702
+length(unique(data2_4_NA$cow)) # 1894
+length(unique(data2$cow)) # 1894
+
+predictB_2_4_NA <- predict(fitB, newdata=data2_4_NA,
+                           formula= ~ fixed_effects + perm + ward + animal)
+colnames(predictB_2_4_NA)
+
+summary(data2$milkZ)
+summary(predictB_2_4_NA$mean)
+predictB_2_4_NA$milkZ <- data2$milkZ
+
+Pheno_4_NA <- subset(predictB_2_4_NA, dgrp=="4")
+summary(Pheno_4_NA$dgrp)
+Accu4 <- round(cor(Pheno_4_NA$milkZ,Pheno_4_NA$mean),2) # 0.
+Accu4 # 0.82
+
+Accu_B <- round((Accu1 + Accu2 + Accu3 + Accu4)/4,2)
+Accu_B # 0.83
+
+
+#-----------------Cross-validation fitBH-----------------------------------------
+# Masking phenotypes of cows in dgrp (Breed proportion class)
+#dgrp1 masked
+predictBH_2_1_NA <- predict(fitBH, newdata=data2_1_NA,
+                           formula= ~ fixed_effects + perm + ward + animal + herd)
+colnames(predictBH_2_1_NA)
+
+summary(data2$milkZ)
+summary(predictBH_2_1_NA$mean)
+predictBH_2_1_NA$milkZ <- data2$milkZ
+
+Pheno_1_NA <- subset(predictBH_2_1_NA, dgrp=="1")
+summary(Pheno_1_NA$dgrp)
+Accu1 <- round(cor(Pheno_1_NA$milkZ,Pheno_1_NA$mean),2) #
+Accu1 # 0.83
+
+#dgrp2 masked
+data2_2_NA<- data2 %>% mutate(milkZ = ifelse(dgrp == "2", NA, milkZ))
+sum(is.na(data2$milkZ)) # 0
+sum(is.na(data2_2_NA$milkZ)) #8149
+length(unique(data2_2_NA$cow)) # 1894
+length(unique(data2$cow)) # 1894
+
+predictBH_2_2_NA <- predict(fitBH, newdata=data2_2_NA,
+                           formula= ~ fixed_effects + perm + ward + animal + herd)
+colnames(predictBH_2_2_NA)
+
+summary(data2$milkZ)
+summary(predictBH_2_2_NA$mean)
+predictBH_2_2_NA$milkZ <- data2$milkZ
+
+Pheno_2_NA <- subset(predictBH_2_2_NA, dgrp=="2")
+summary(Pheno_2_NA$dgrp)
+Accu2 <- round(cor(Pheno_2_NA$milkZ,Pheno_2_NA$mean),2)
+Accu2 # 0.85
+
+#dgrp3 masked
+
+predictBH_2_3_NA <- predict(fitBH, newdata=data2_3_NA,
+                           formula= ~ fixed_effects + perm + ward + animal+herd)
+colnames(predictBH_2_3_NA)
+
+summary(data2$milkZ)
+summary(predictBH_2_3_NA$mean)
+predictBH_2_3_NA$milkZ <- data2$milkZ
+
+Pheno_3_NA <- subset(predictBH_2_3_NA, dgrp=="3")
+summary(Pheno_3_NA$dgrp)
+Accu3 <- round(cor(Pheno_3_NA$milkZ,Pheno_3_NA$mean),2)
+Accu3 # 0.83
+
+
+#dgrp4 masked
+predictBH_2_4_NA <- predict(fitBH, newdata=data2_4_NA,
+                           formula= ~ fixed_effects + perm + ward + animal +herd)
+colnames(predictBH_2_4_NA)
+
+summary(data2$milkZ)
+summary(predictBH_2_4_NA$mean)
+predictBH_2_4_NA$milkZ <- data2$milkZ
+
+Pheno_4_NA <- subset(predictBH_2_4_NA, dgrp=="4")
+summary(Pheno_4_NA$dgrp)
+Accu4 <- round(cor(Pheno_4_NA$milkZ,Pheno_4_NA$mean),2) # 0.
+Accu4 # 0.82
+
+Accu_BH <- round((Accu1 + Accu2 + Accu3 + Accu4)/4,2)
+Accu_BH # 0.83
+
+
+#-----------------Cross-validation fitBS-----------------------------------------
+# Masking phenotypes of cows in dgrp (Breed proportion class)
+#dgrp1 masked
+predictBS_2_1_NA <- predict(fitBS, newdata=data2_1_NA,
+                            formula= ~ fixed_effects + perm + ward + animal + field)
+colnames(predictBS_2_1_NA)
+
+summary(data2$milkZ)
+summary(predictBS_2_1_NA$mean)
+predictBS_2_1_NA$milkZ <- data2$milkZ
+
+Pheno_1_NA <- subset(predictBS_2_1_NA, dgrp=="1")
+summary(Pheno_1_NA$dgrp)
+Accu1 <- round(cor(Pheno_1_NA$milkZ,Pheno_1_NA$mean),2) #
+Accu1 #
+
+#dgrp2 masked
+data2_2_NA<- data2 %>% mutate(milkZ = ifelse(dgrp == "2", NA, milkZ))
+sum(is.na(data2$milkZ)) # 0
+sum(is.na(data2_2_NA$milkZ)) #8149
+length(unique(data2_2_NA$cow)) # 1894
+length(unique(data2$cow)) # 1894
+
+predictBH_2_2_NA <- predict(fitBH, newdata=data2_2_NA,
+                            formula= ~ fixed_effects + perm + ward + animal + herd)
+colnames(predictBH_2_2_NA)
+
+summary(data2$milkZ)
+summary(predictBH_2_2_NA$mean)
+predictBH_2_2_NA$milkZ <- data2$milkZ
+
+Pheno_2_NA <- subset(predictBH_2_2_NA, dgrp=="2")
+summary(Pheno_2_NA$dgrp)
+Accu2 <- round(cor(Pheno_2_NA$milkZ,Pheno_2_NA$mean),2)
+Accu2 # 0.85
+
+#dgrp3 masked
+
+predictBH_2_3_NA <- predict(fitBH, newdata=data2_3_NA,
+                            formula= ~ fixed_effects + perm + ward + animal+herd)
+colnames(predictBH_2_3_NA)
+
+summary(data2$milkZ)
+summary(predictBH_2_3_NA$mean)
+predictBH_2_3_NA$milkZ <- data2$milkZ
+
+Pheno_3_NA <- subset(predictBH_2_3_NA, dgrp=="3")
+summary(Pheno_3_NA$dgrp)
+Accu3 <- round(cor(Pheno_3_NA$milkZ,Pheno_3_NA$mean),2)
+Accu3 # 0.83
+
+
+#dgrp4 masked
+predictBH_2_4_NA <- predict(fitBH, newdata=data2_4_NA,
+                            formula= ~ fixed_effects + perm + ward + animal +herd)
+colnames(predictBH_2_4_NA)
+
+summary(data2$milkZ)
+summary(predictBH_2_4_NA$mean)
+predictBH_2_4_NA$milkZ <- data2$milkZ
+
+Pheno_4_NA <- subset(predictBH_2_4_NA, dgrp=="4")
+summary(Pheno_4_NA$dgrp)
+Accu4 <- round(cor(Pheno_4_NA$milkZ,Pheno_4_NA$mean),2) # 0.
+Accu4 # 0.82
+
+Accu_BH <- round((Accu1 + Accu2 + Accu3 + Accu4)/4,2)
+Accu_BH # 0.83
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+predictB2 <- predictB # Saving predictB
+
+# Breeding values and Yield deviation model fitB
+
+# Predict Breeding value of cows in dgrp1
+fitB_1_NA <- bru(modelB,
+                 like(family = "Gaussian",
+                      modelBFormula,
+                      data = data2_1_NA))
+
+EBV_B_1_NA <- fitB_1_NA$summary.random$animal[,c("ID","mean")]
+
+colnames(EBV_B_1_NA)[1] <- "cow"
+colnames(EBV_B_1_NA)[2] <- "EBV_B"
+
+# data2 for dgrp1
+data2_1 <- subset(data2, dgrp==1)
+length(unique(data2_1$cow)) # 731 cows
+# cows with dgrp1 IDS  (dgrp=1)
+cow_ID_1 <- subset(data2_1, select=c(cow))
+cow_ID_1 <- unique(cow_ID_1)
+summary(cow_ID_1)
+rownames(cow_ID_1) <- NULL
+length(unique(cow_ID_1$cow)) # 731 cows
+sel <- predictB$cow %in% cow_ID_1$cow
+predictB <- predictB[sel,]
+predictB<- subset(predictB,select= c("cow","YDB_cow"))
+predictB <- data.frame(predictB)
+predictB <- predictB[,c("cow","YDB_cow")]
+
+sel <- EBV_B_1_NA$cow %in% cow_ID_1$cow
+EBV_B_1_NA <- EBV_B_1_NA[sel,]
+
+EBV_YDB <- merge(predictB,EBV_B_1_NA, by="cow", all.x=TRUE)
+
+# Cross Validation for accuracy for model fitB for cows in dgrp1
+round(cor(EBV_YDB$YDB_cow,EBV_YDB$EBV_B),2) # 0.05
+
+#dgrp2 masked
+data2_2_NA<- data2 %>% mutate(milkZ = ifelse(dgrp == "2", NA, milkZ))
+sum(is.na(data2$milkZ)) # 0
+sum(is.na(data2_2_NA$milkZ)) #8149
+length(unique(data2_2_NA$cow)) # 1894 cows
+length(unique(data2$cow)) # 1894
+
+# Predict Breeding value of cows in dgrp2
+fitB_2_NA <- bru(modelB,
+                 like(family = "Gaussian",
+                      modelBFormula,
+                      data = data2_2_NA))
+
+EBV_B_2_NA <- fitB_2_NA$summary.random$animal[,c("ID","mean")]
+
+colnames(EBV_B_2_NA)[1] <- "cow"
+colnames(EBV_B_2_NA)[2] <- "EBV_B"
+
+# data2 for dgrp2
+data2_2 <- subset(data2, dgrp==2)
+length(unique(data2_2$cow)) #  cows
+# cows with dgrp2 IDS  (dgrp=2)
+cow_ID_2 <- subset(data2_2, select=c(cow))
+cow_ID_2 <- unique(cow_ID_2)
+summary(cow_ID_2)
+rownames(cow_ID_2) <- NULL
+length(unique(cow_ID_2$cow)) # 770 cows
+predictB<- predictB2 # Recalling predictB
+sel <- predictB$cow %in% cow_ID_2$cow
+predictB <- predictB[sel,]
+predictB<- subset(predictB,select= c("cow","YDB_cow"))
+predictB <- data.frame(predictB)
+predictB <- predictB[,c("cow","YDB_cow")]
+
+sel <- EBV_B_2_NA$cow %in% cow_ID_2$cow
+EBV_B_2_NA <- EBV_B_2_NA[sel,]
+
+EBV_YDB <- merge(predictB,EBV_B_2_NA, by="cow", all.x=TRUE)
+
+# Cross Validation for accuracy for model fitB for cows in dgrp2
+round(cor(EBV_YDB$YDB_cow,EBV_YDB$EBV_B),2) # 0. 14
+
+#dgrp3 masked
+data2_3_NA<- data2 %>% mutate(milkZ = ifelse(dgrp == "3", NA, milkZ))
+sum(is.na(data2$milkZ)) # 0
+sum(is.na(data2_3_NA$milkZ)) #3058
+length(unique(data2_3_NA$cow)) # 1894cows
+length(unique(data2$cow)) # 1894
+
+# Predict Breeding value of cows in dgrp2
+fitB_3_NA <- bru(modelB,
+                 like(family = "Gaussian",
+                      modelBFormula,
+                      data = data2_3_NA))
+
+EBV_B_3_NA <- fitB_3_NA$summary.random$animal[,c("ID","mean")]
+
+colnames(EBV_B_3_NA)[1] <- "cow"
+colnames(EBV_B_3_NA)[2] <- "EBV_B"
+
+# data2 for dgrp3
+data2_3 <- subset(data2, dgrp==3)
+length(unique(data2_3$cow)) # 309 cows
+# cows with dgrp2 IDS  (dgrp=3)
+cow_ID_3 <- subset(data2_3, select=c(cow))
+cow_ID_3 <- unique(cow_ID_3)
+summary(cow_ID_3)
+rownames(cow_ID_3) <- NULL
+length(unique(cow_ID_3$cow)) # 309 cows
+predictB<- predictB2 # Recalling predictB
+sel <- predictB$cow %in% cow_ID_3$cow
+predictB <- predictB[sel,]
+predictB<- subset(predictB,select= c("cow","YDB_cow"))
+predictB <- data.frame(predictB)
+predictB <- predictB[,c("cow","YDB_cow")]
+
+sel <- EBV_B_3_NA$cow %in% cow_ID_3$cow
+EBV_B_3_NA <- EBV_B_3_NA[sel,]
+
+EBV_YDB <- merge(predictB,EBV_B_3_NA, by="cow", all.x=TRUE)
+
+# Cross Validation for accuracy for model fitB for cows in dgrp3
+round(cor(EBV_YDB$YDB_cow,EBV_YDB$EBV_B),2) # 0.14
+
+
+#dgrp4 masked
+data2_4_NA<- data2 %>% mutate(milkZ = ifelse(dgrp == "4", NA, milkZ))
+sum(is.na(data2$milkZ)) # 0
+sum(is.na(data2_4_NA$milkZ)) #702
+length(unique(data2_4_NA$cow)) # 1894cows
+length(unique(data2$cow)) # 1894
+
+# Predict Breeding value of cows in dgrp2
+fitB_4_NA <- bru(modelB,
+                 like(family = "Gaussian",
+                      modelBFormula,
+                      data = data2_4_NA))
+
+EBV_B_4_NA <- fitB_4_NA$summary.random$animal[,c("ID","mean")]
+
+colnames(EBV_B_4_NA)[1] <- "cow"
+colnames(EBV_B_4_NA)[2] <- "EBV_B"
+
+# data2 for dgrp4
+data2_4 <- subset(data2, dgrp==4)
+length(unique(data2_4$cow)) #  84 cows
+# cows with dgrp4 IDS  (dgrp=4)
+cow_ID_4 <- subset(data2_4, select=c(cow))
+cow_ID_4 <- unique(cow_ID_4)
+summary(cow_ID_4)
+rownames(cow_ID_4) <- NULL
+length(unique(cow_ID_4$cow)) #  84cows
+predictB<- predictB2 # Recalling predictB
+sel <- predictB$cow %in% cow_ID_4$cow
+predictB <- predictB[sel,]
+predictB<- subset(predictB,select= c("cow","YDB_cow"))
+predictB <- data.frame(predictB)
+predictB <- predictB[,c("cow","YDB_cow")]
+
+sel <- EBV_B_4_NA$cow %in% cow_ID_4$cow
+EBV_B_4_NA <- EBV_B_4_NA[sel,]
+
+EBV_YDB <- merge(predictB,EBV_B_4_NA, by="cow", all.x=TRUE)
+
+# Cross Validation for accuracy for model fitB for cows in dgrp4
+round(cor(EBV_YDB$YDB_cow,EBV_YDB$EBV_B),2) # -0.04
+
+# The Average accuracy for model fitB
+Acc_B <- round((0.05+0.14 + 0.14-0.04)/4,2)
+Acc_B # 0.07
 
 
 
@@ -3692,9 +4127,7 @@ Acc_BS #
 
 
 
-
-
-
+#----Old (EAAP) cross_validation------------------------------------------------
 # INLA Software
 fitBase_NA1 <- inla(formula = modelfitBase, data = data1_1_NA,
                     control.compute = list(dic = TRUE,config=TRUE))
@@ -4981,8 +5414,107 @@ ggsave(plot = dgrp_pca + PreseTheme, filename = "PCA_breed_proportion_presentati
 ggsave(plot = dgrp_pca + PaperTheme, filename = "PCA_breed_proportion_paper.png",
        height = PaperSize, width = PaperSize * 1.5, unit = "cm") # Paper
 
+#--------MANOVA----------------------------------
 
+with(pcas_3, plot(PC1 ~ PC2, col = c("blue", "red", "black", "yellow")[dgrp]))
+fit <- manova(cbind(PC1, PC2, PC3) ~ dgrp, data = pcas_3)
+summary(fit) # p=1.911e-10 --> highly significant!
+summary.aov(fit)
+# PC1: p=9.645e-11
+# PC2: p=0.04549
+# PC3: p=0.07128
+fit <- lm(PC1 ~ dgrp, data = pcas_3)
+summary(fit)
+#             Estimate Std. Error t value Pr(>|t|)
+# (Intercept)  -15.194      3.193  -4.758 2.10e-06 ***
+# dgrp2         18.850      4.459   4.228 2.47e-05 ***
+# dgrp3         32.516      5.858   5.550 3.25e-08 ***
+# dgrp4         50.191      9.947   5.046 4.95e-07 ***
+fit <- lm(PC2 ~ dgrp, data = pcas_3)
+summary(fit)
+# --> nothing is really significant
 
+with(pcas_3, plot(PC1 ~ PC2, col = c("blue", "red", "black", "yellow")[region]))
+fit <- manova(cbind(PC1, PC2, PC3) ~ region, data = pcas_3)
+summary(fit) # p=2.2e-16 --> highly significant
+summary.aov(fit)
+# PC1: p=2.2e-16
+# PC2: p=2.2e-16
+# PC3: p=6.568e-10
+fit <- lm(PC1 ~ region, data = pcas_3)
+summary(fit)
+#             Estimate Std. Error t value Pr(>|t|)
+# (Intercept)   32.539      4.090   7.956 3.03e-15 ***
+#   region2    -46.455      5.115  -9.083  < 2e-16 ***
+#   region3    -33.487      5.864  -5.711 1.30e-08 ***
+#   region4    -43.890      6.633  -6.617 4.77e-11 ***
+plot(y = data1$lat, x = data1$long, col = c("blue", "red", "black", "yellow")[data1$region])
+plot(y = data2$lat, x = data2$long)
+nrow(pcas_3)
+
+fit <- lm(PC2 ~ region, data = pcas_3)
+summary(fit)
+
+fit <- lm(PC3 ~ region, data = pcas_3)
+summary(fit)
+
+tmp <- data1[!duplicated(data1[, c("cow")]), ]
+with(tmp, table(dgrp, region))
+summary(lm(as.numeric(dgrp) ~ region, data = tmp))
+
+par(mfrow = c(2, 2))
+lims <- range(pcas_3$PC1)
+tmp <- pcas_3[pcas_3$dgrp == "1", ]
+hist(tmp$PC1, xlim = lims, main = "1")
+tmp <- pcas_3[pcas_3$dgrp == "2", ]
+hist(tmp$PC1, xlim = lims, main = "2")
+tmp <- pcas_3[pcas_3$dgrp == "3", ]
+hist(tmp$PC1, xlim = lims, main = "3")
+tmp <- pcas_3[pcas_3$dgrp == "4", ]
+hist(tmp$PC1, xlim = lims, main = "4")
+
+plot(y = pcas_3$EBV_BHS, x = pcas_3$Spatial_effect_BHS,
+     col = c("blue", "red", "black", "yellow")[pcas_3$region])
+
+lims <- range(c(pcas_3$EBV_B, pcas_3$EBV_BHS))
+range(pcas_3$EBV_B)
+range(pcas_3$EBV_BH)
+range(pcas_3$EBV_BS)
+range(pcas_3$EBV_BHS)
+plot(y = pcas_3$EBV_B, x = pcas_3$EBV_BH,
+     col = c("blue", "red", "black", "yellow")[pcas_3$region],
+     pch = 19, cex = 0.1)
+plot(y = pcas_3$EBV_B, x = pcas_3$EBV_BS,
+     col = c("blue", "red", "black", "yellow")[pcas_3$region],
+     pch = 19, cex = 0.1)
+plot(y = pcas_3$EBV_BH, x = pcas_3$EBV_BS,
+     col = c("blue", "red", "black", "yellow")[pcas_3$region],
+     pch = 19, cex = 0.1)
+
+summary(lm(EBV_B ~ region, data = pcas_3))
+#              Estimate Std. Error t value Pr(>|t|)
+# (Intercept) -0.001682   0.003877  -0.434   0.6644
+# region2     -0.001412   0.004849  -0.291   0.7709
+# region3     -0.009324   0.005559  -1.677   0.0937 .
+# region4      0.030381   0.006289   4.831 1.47e-06 ***
+
+summary(lm(EBV_BH ~ region, data = pcas_3))
+#               Estimate Std. Error t value Pr(>|t|)
+# (Intercept) -0.0013604  0.0018458  -0.737 0.461217
+# region2      0.0006607  0.0023083   0.286 0.774718
+# region3     -0.0015272  0.0026464  -0.577 0.563937
+# region4      0.0100666  0.0029937   3.363 0.000788 ***
+
+summary(lm(EBV_BS ~ region, data = pcas_3))
+#               Estimate Std. Error t value Pr(>|t|)
+# (Intercept) -0.0001187  0.0002865  -0.414    0.679
+# region2     -0.0001831  0.0003583  -0.511    0.609
+# region3      0.0005166  0.0004108   1.258    0.209
+# region4      0.0005951  0.0004647   1.280    0.201
+# --> not significant anymore, good or bad? need validation
+
+summary(lm(EBV_BHS ~ region, data = pcas_3))
+# --> not significant anymore, good or bad? need validation
 
 #-----------------Box plot dEBV vs Spatial effect BHS------------------
 
