@@ -5,4 +5,4 @@ There are three files: 1) Scripts_Spatial_Modelling.R, 2) Scripts_Model_Validati
    
 2) "Scripts_Model_Validation.R": This file contains the code used for cross-validation and forward validation of the models
    
-3) "Scripts_PCA_Correlations.R": This file contains the code used for Principal components Analysis, Muli-variate analysis of Variance (MANOVA) and the correlation between estimated genomic breeding values and models components.
+3) "Scripts_PCA_Correlations.R": This file contains the code used for Principal components Analysis, Multi-variate analysis of Variance (MANOVA) and the correlation between estimated genomic breeding values and models components.
