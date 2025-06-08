@@ -13,22 +13,7 @@ setwd(dir = baseDir)
 getwd()
 
 # ---- Installing and loading packages--------------------------------------------
-
-if (FALSE) {
-  requiredPackages <- c(
-    "tidyverse", # for data manipulation
-    "fmesher",
-    "inlabru",
-    "verification", # for Continuous Ranked Probability Score
-    "irlba" # for fast PCA
-  )
-  install.packages(pkgs = requiredPackages)
-  install.packages(pkgs = "INLA",
-                   repos=c(getOption("repos"),
-                           INLA = "https://inla.r-inla-download.org/R/stable"),
-                   dep = TRUE)
-  inla.upgrade(testing = TRUE)
-}
+#Load required libraries
 library(tidyverse)
 library(INLA)
 library(inlabru)
