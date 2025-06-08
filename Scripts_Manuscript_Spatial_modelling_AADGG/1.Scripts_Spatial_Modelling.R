@@ -2,8 +2,8 @@
 # Spatial modelling
 # Trait: Test day milk yield
 # Author: Isidore Houaga, Ivan Pocrnic and Gregor Gorjanc.
-# Version 1.0.0
-# Date: 2023-07-20
+# Version 1.1.0
+# Date: 2025-06-08
 # ---- Setup--------------------------------------------------------------------
 
 # Working directory
