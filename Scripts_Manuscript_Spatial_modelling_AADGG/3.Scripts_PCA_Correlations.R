@@ -12,22 +12,15 @@ baseDir <- "/Users/ihouaga2/ihouaga_adgg_spatial"
 setwd(dir = baseDir)
 getwd()
 # ---- Installing and loading packages--------------------------------------------
-
-if (FALSE) {
-  requiredPackages <- c(
-    "tidyverse",
-    "verification", # for Continuous Ranked Probability Score
-    "irlba" # for fast PCA
-  )
-  install.packages(pkgs = requiredPackages)
-}
+#Load required libraries
 library(tidyverse)
+library(INLA)
+library(inlabru)
 library(irlba)
 library(Hmisc) # Correlation matrix with P-values
 library(easyGgplot2)
 library(psych) # scatter-plot matrix
 (.packages()) # Check loaded packages
-
 #-----------------------Principal Components analysis---------------------------
 # Import SNP data (already QCed by Raphael so we will just take it as it is!)
 geno <- read.table(file = "data/original_data/snpref-isi.txt", header = FALSE)
