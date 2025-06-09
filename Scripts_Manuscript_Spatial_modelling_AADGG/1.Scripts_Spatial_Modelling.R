@@ -80,11 +80,6 @@ data1$dgrpI <- as.numeric(data1$dgrp) # these codes will now be 1:n
 #After making them as.numeric the spde model run well # Discuss this with @gg)
 data1$regionI <- as.numeric(data1$region) #these codes will now be 1:n
 
-# Read in the regional data for Besag model
-nb.map <- inla.read.graph(filename = "data/cleaned_data/ward_neighbours.txt")
-load(file = "data/cleaned_data/ward_neighbours_precision_matrix.RData")
-# this will load nb.matrix and nb.matrixScaled
-
 # Read in the genomic relationship matrix
 load(file = "data/cleaned_data/GRMInv.RData")
 str(GRMInv)
