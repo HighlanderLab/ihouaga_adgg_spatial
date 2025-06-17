@@ -283,27 +283,12 @@ modelGS <- ~ fixed_effects(main = ~ tyrmn + cyrsn + dgrp + ageZ:lacgr + leg1:lac
 
 modelGSFormula <- milkZ ~ .
 
-# ModelGS2 # Spatial plot in paper-Supplementary
-modelGS2 <- ~ fixed_effects(main = ~ tyrmn + cyrsn + dgrp + ageZ:lacgr + leg1:lacgr + leg2:lacgr, model = "fixed") +
-  animal(main = cow, model = 'generic', Cmatrix = GRMInv) +
-  field(geometry, model = matern2)
-
-modelGSFormula2 <- milkZ ~ .
-
 # ModelGHS
 modelGHS <- ~ fixed_effects(main = ~ tyrmn + cyrsn + dgrp + ageZ:lacgr + leg1:lacgr + leg2:lacgr, model = "fixed") +
   animal(main = cow, model = 'generic', Cmatrix = GRMInv) +
   herd(main=herd, model = 'iid') +
   field(geometry, model = matern)
 modelGHSFormula <- milkZ ~ .
-
-
-# ModelGHS2
-modelGHS2 <- ~ fixed_effects(main = ~ tyrmn + cyrsn + dgrp + ageZ:lacgr + leg1:lacgr + leg2:lacgr, model = "fixed") +
-  animal(main = cow, model = 'generic', Cmatrix = GRMInv) +
-  herd(main=herd, model = 'iid') +
-  field(geometry, model = matern2)
-modelGHSFormula2 <- milkZ ~ .
 
 #-------Define GP models with permanent environmental effect--------------------
 #---------------------Define GP models------------------------------------------
@@ -375,19 +360,11 @@ fitGP <- bru(modelGP,
              like(family = "Gaussian",
                   modelGPFormula,
                   data = data2))
-
-summary(fitGP) 
-summarise_precision_to_variance(fitGP)
-
 # Run fitGPH
 fitGPH <- bru(modelGPH,
              like(family = "Gaussian",
                   modelGPHFormula,
                   data = data2))
-
-summary(fitGPH) 
-summarise_precision_to_variance(fitGPH)
-
 
 # Run fitGPS
 fitGPS <- bru(modelGPS,
@@ -395,63 +372,30 @@ fitGPS <- bru(modelGPS,
                   modelGPSFormula,
                   data = data2))
 
-summary(fitGPS) 
-summarise_precision_to_variance(fitGPS)
-
-# Predict spatial effects at our locations and calculate Spatial variance for GPS
-#fitGPS_sample <- inla.posterior.sample(1000, fitGPS) # Sampling posterior means
-
-fieldGPS <- predict(fitGPS,spdf, ~field)
-fieldGPS_df <- data.frame(fieldGPS[,c("cow" , "mean")])
-fieldGPS_df <- distinct(data.frame(fieldGPS_df))
-
-# Run fitGPHS
-fitGPHS <- bru(modelGPHS,
-               like(family = "Gaussian",
-                    modelGPHSFormula,
-                    data = data2))
-
-summary(fitGPHS) 
-summarise_precision_to_variance(fitGPHS)
-
 #--------Run G models-----------------------------------------------------------
 # Run fitG
 fitG<- bru(modelG,
            like(family = "Gaussian",
                 modelGFormula,
                 data = data2))
-
-summary(fitG) # 32715.99
+summary(fitG)
 summarise_precision_to_variance(fitG)
-
 
 # Run fitGH
 fitGH<- bru(modelGH,
             like(family = "Gaussian",
                  modelGHFormula,
                  data = data2))
-
-summary(fitGH) 
-summarise_precision_to_variance(fitGH)
-
-
 # Run fitGS
 fitGS<- bru(modelGS,
             like(family = "Gaussian",
                  modelGSFormula,
                  data = data2))
-
-summary(fitGS) 
-summarise_precision_to_variance(fitGS)
-
 # Run fitGHS
 fitGHS<- bru(modelGHS,
              like(family = "Gaussian",
                   modelGHSFormula,
                   data = data2))
-
-summary(fitGHS) 
-summarise_precision_to_variance(fitGHS)
 
 #------------------------ Variance components Paper-----------------------------
 #GP
@@ -540,11 +484,6 @@ colnames(column_variances_GS)[1] <- "spatial_var"
 round(mean(column_variances_GS$spatial_var),3) 
 round(sd(column_variances_GS$spatial_var),3) 
 
-# To find out which elements are directly available to use in the prediction/formula expression in generate()/predict(), call
-#generate(the_fit, n.samples = 1)
-#and look at the names in the output. This should include all of the covariance parameters.
-#fieldGS1 <- generate(fitGS, n.samples = 1)
-
 Range_fieldGS <- generate(fitGS,spdf, ~Range_for_field, 1000)
 str(Range_fieldGS)
 Range_fieldGS_df <- data.frame(Range_fieldGS)
@@ -579,7 +518,6 @@ Range_fieldGHS_df <- data.frame(Range_fieldGHS)
 round(rowMeans(Range_fieldGHS_df),3)
 sd_range_GHS <- round(row_sd(Range_fieldGHS_df),3)
 sd_range_GHS
-
 
 # ----------------Plotting Spatial effects from GHS and GS models------
 #fitGHS
