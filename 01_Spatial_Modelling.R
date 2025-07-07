@@ -14,11 +14,11 @@ setwd(dir = baseDir)
 
 if (FALSE) {
   requiredPackages <- c(
-    "tidyverse", # for data manipulation
+    "tidyverse", 
     "fmesher",
     "inlabru",
-    "verification", # for Continuous Ranked Probability Score
-    "irlba" # for fast PCA
+    "verification", 
+    "irlba" 
   )
   install.packages(pkgs = requiredPackages)
   install.packages(pkgs = "INLA",
@@ -33,24 +33,22 @@ library(inlabru)
 library(sf)
 library(sp)
 library(fmesher)
-library(gridExtra) # Visualize random field grid
-library(verification) # Visualize random field grid
+library(gridExtra) 
+library(verification) 
 library(lattice)
-library(raster) # GetData to plot country map
+library(raster) 
 library(rgeos)
 library(geodata)
 library(rnaturalearth)
 library(rnaturalearthdata)
 library(rnaturalearthhires)
-library(viridis) # Plot mean and sd spatial effect
-library(fields)# Plot mean and sd spatial effect
-library(ggpubr) # Plot mean and sd spatial effect
+library(viridis) 
+library(fields)
+library(ggpubr) 
 library(irlba)
-library(Hmisc) # Correlation matrix with P-values
-#library("MASS") # Pca
-#library("factoextra") # Pca
+library(Hmisc) 
 library(easyGgplot2)
-library(psych) # scatter-plot matrix
+library(psych) 
 
 (.packages()) # Check loaded packages
 
@@ -68,17 +66,14 @@ data1 <- data1 %>%
             .funs = as.factor)
 str(data1)
 summary(data1$herd)
-data1$herdI <- as.numeric(data1$herd) # these codes will now be 1:n
-data1$ward_codeI <- as.numeric(data1$ward_code) # these codes will now be 1:n
+data1$herdI <- as.numeric(data1$herd) # coded 1:n
+data1$ward_codeI <- as.numeric(data1$ward_code) # coded 1:n
 data1$cowPe <- data1$cow # cow permanent environment
-data1$cowPeI <- as.numeric(data1$cowPe) # these codes will now be 1:n
-# data1$cowI <- as.numeric(data1$????) # see below!
-data1$tyrmnI <- as.numeric(data1$tyrmn) # these codes will now be 1:n
-data1$cyrsnI <- as.numeric(data1$cyrsn) # these codes will now be 1:n
-data1$dgrpI <- as.numeric(data1$dgrp) # these codes will now be 1:n
-# I made cyrn and tyrnm as numeric because for SPDE models I got error when they are factor (# I got: "Error in cyrsn + tyrmn : non-conformable arrays" and Error in cyrsn + tyrmn : non-numeric argument to binary operator"
-#After making them as.numeric the spde model run well # Discuss this with @gg)
-data1$regionI <- as.numeric(data1$region) #these codes will now be 1:n
+data1$cowPeI <- as.numeric(data1$cowPe) # coded 1:n
+data1$tyrmnI <- as.numeric(data1$tyrmn) # coded 1:n
+data1$cyrsnI <- as.numeric(data1$cyrsn) # coded 1:n
+data1$dgrpI <- as.numeric(data1$dgrp) # coded 1:n
+data1$regionI <- as.numeric(data1$region) # coded 1:n
 
 # Read in the genomic relationship matrix
 load(file = "data/cleaned_data/GRMInv.RData")
@@ -86,13 +81,14 @@ str(GRMInv)
 dim(GRMInv) # 1894 x 1894
 class(GRMInv)
 head(GRMInv)
-# Now we can code the cows in pheno data correctly
+
 data1$cow <- factor(data1$cow, levels = 1:nrow(GRMInv))
-summary(as.numeric(levels(data1$cow))) # we need 1:1894 numbers here!
+summary(as.numeric(levels(data1$cow))) # 1:1894
 data1$cowI <- as.numeric(as.character(data1$cow))
-summary(data1$cowI) # we have 1:1894 ids here
+summary(data1$cowI) # 1:1894
 head(data1)
 tail(data1)
+
 # Standardise response variable and covariates
 # ... INLA uses priors so best to be on the O(1) scale
 data1$milkZ <- scale(data1$milk)
@@ -111,7 +107,7 @@ summary(data1$leg2)
 #--------Building mesh and prepare data for SPDE modelling----------------------
 # Create dataframe of coordinates
 Mydata_gps <- data1[, c("long", "lat")]
-#save(Mydata_gps, file = "Mydata_gps.RData")
+# save(Mydata_gps, file = "Mydata_gps.RData")
 
 dat <- sf::st_as_sf(Mydata_gps, coords = c("long", "lat"), crs = 4326)
 crs_tz <- fm_crs(21035)
@@ -128,16 +124,12 @@ ggplot() + geom_sf(data = dat) + coord_sf(datum = crs_tz) +
 
 bnd_inner <- fm_nonconvex_hull_inla(dat, 50)
 
-# Need to extend the mesh a bit beyond the artificial country borders to avoid
-# edge and "island" effects:
-# Load Tanzania map (level 1: regional boundaries)
-#mapTZA <- geodata::gadm(country = "TZA", level = 1, path = tempdir())
-
-#Alternative to load map data
+# Need to extend the mesh a bit beyond the artificial country borders to avoid edge and "island" effects 
 
 # Retrieve all countries as an sf object
 countries <- ne_countries(returnclass = "sf")
 str(countries)
+
 # Filter for Tanzania
 mapTZA <- countries[countries$admin == "United Republic of Tanzania", ]
 
@@ -147,14 +139,10 @@ plot(st_geometry(mapTZA), main = "Tanzania Boundary")
 # Inspect mapTZA
 class(mapTZA) # "SpatVector"
 
-# Convert mapTZA from "SpatVector" to sf format
-#mapTZA<- st_as_sf(mapTZA)
-#class(mapTZA) # "sf"         "data.frame"
-
-#Inspect the CRS of the mapTZA
+# Inspect the CRS of the mapTZA
 st_crs(mapTZA) #  the CRS is (longlat: EPSG:4326) ie WGS84
 
-data_border <-  st_union(mapTZA) # whatever code needed to load the border data and sets its original crs
+data_border <-  st_union(mapTZA)
 plot(data_border)
 data_border <- fm_transform(data_border, crs_tz)
 
@@ -169,7 +157,7 @@ mesh <- fm_mesh_2d_inla(boundary = list(bnd_inner, bnd_outer),
                         cutoff = 10,
                         crs = crs_tz)
 
-#Mesh plot for manuscript
+# Mesh plot for manuscript
 meshplot<- ggplot() +
   geom_fm(data = mesh) +
   geom_sf(data = dat, size = 0.1) + geom_sf(data=data_border,alpha=0.2) +
@@ -177,7 +165,7 @@ meshplot<- ggplot() +
   labs(x = "Longitude (km)", y = "Latitude (km)")
 meshplot
 
-#Formating of plot
+#  Formatting of plot
 PaperTheme = theme_bw(base_size = 12, base_family = "serif") +
   theme(legend.position = "top")
 
@@ -192,19 +180,19 @@ PreseThemeLegendright = theme_bw(base_size = 18, base_family = "sans") +
   theme(legend.position = "right")
 PreseThemeNoLegend = PreseTheme + theme(legend.position = "none")
 PreseSize = 16
-# Export the mesh in Paper_plot format.
-ggsave(plot = meshplot + PaperTheme, filename = "Figure1New.png",
-       height = PaperSize, width = PaperSize * 1.5, unit = "cm") # Paper
 
-#For INLABru define matern
+# Export the mesh in Paper_plot format
+ggsave(plot = meshplot + PaperTheme, filename = "Figure1New.png",
+       height = PaperSize, width = PaperSize * 1.5, unit = "cm")
+
+# For INLABru define Matern
 matern <-
   inla.spde2.pcmatern(mesh,
                       prior.sigma = c(sqrt(0.25), 0.5),
                       prior.range = c(50, 0.8)
   )
 
-#data2 <- sf::st_as_sf(x = locations[, c("long", "lat")],
-                      #coords = c("long", "lat")) # X and Y?
+
 data2 <- dat[,"geometry"]
 
 data2$milkZ <- data1$milkZ
@@ -223,7 +211,6 @@ data2$cowI <- data1$cowI
 data2$cowPe <- data1$cowPe
 data2$ward_raph <- data1$ward
 data2$lac <- data1$lac
-# data2$cowPeI <- data1$cowPeI
 data2$leg0 <- data1$leg0
 data2$leg1 <- data1$leg1
 data2$leg2 <- data1$leg2
@@ -234,31 +221,17 @@ data2$cyrsnI <- data1$cyrsnI
 data2$tyrmnI <- data1$tyrmnI
 data2$dgrpI <- data1$dgrpI
 data2$region <- data1$region
+
 # Create age groups
 data2$age_group <- cut(data2$age, breaks = c(0, 36, 60, Inf), labels = c("18-36 months", "36-60 months", "> 60 months"))
 colnames(data2)
-length(unique(data2$geometry)) #1385 couples of GPS vs 1386 herds (2 herds at same location)
+length(unique(data2$geometry)) # 1385 couples of GPS vs 1386 herds (2 herds at same location)
+
 # Create HYS (Herd year season)
 data2$hys <- with(data2, paste0(herd, "-", cyrsn))
 table(table(data2$hys))
-# Create a spatialpointdataframe needed for special effect prediction.
-# Following instructions from  https://stackoverflow.com/questions/32583606/create-spatialpointsdataframe
-# prepare coordinates, data, and proj4string
-#coords <- data1[ , c("long", "lat")]   # coordinates
-#data   <- data1          # data
-#crs    <- crs_tz # proj4string of coords. This was a wrong one.
-#28992 is for Netherlands.
-#crs   <- ??????  Use local system
-#coords <- locations[ , c("X", "Y")]   # coordinates
-#data   <- data1          # data
-#crs    <- crs_tz # proj4string of coords. This was a wrong one.
 
 class(dat)
-
-# make the SpatialPointsDataFrame object
-#spdf <- SpatialPointsDataFrame(coords      = coords,
-                              # data        = data,
-                               #proj4string = crs)
 
 spdf <- as(dat, "Spatial")
 class(spdf) # "SpatialPointsDataFrame"
@@ -270,7 +243,7 @@ modelG <- ~ fixed_effects(main = ~ tyrmn + cyrsn + dgrp + ageZ:lacgr + leg1:lacg
   animal(main = cow, model = 'generic', Cmatrix = GRMInv)
 modelGFormula <- milkZ ~ .
 
-#ModelGH
+# ModelGH
 modelGH <- ~ fixed_effects(main = ~ tyrmn + cyrsn + dgrp + ageZ:lacgr + leg1:lacgr + leg2:lacgr, model = "fixed") +
   animal(main = cow, model = 'generic', Cmatrix = GRMInv) +
   herd(main=herd, model = 'iid')
@@ -305,7 +278,6 @@ modelGPH <- ~ fixed_effects(main = ~ tyrmn + cyrsn + dgrp +  ageZ:lacgr + leg1:l
   herd(main=herd, model = 'iid')
 
 modelGPHFormula <- milkZ ~ .
-
 
 # ModelGPS
 modelGPS <- ~ fixed_effects(main = ~ tyrmn + cyrsn + dgrp + ageZ:lacgr + leg1:lacgr + leg2:lacgr, model = "fixed") +
@@ -398,25 +370,27 @@ fitGHS<- bru(modelGHS,
                   data = data2))
 
 #------------------------ Variance components Paper-----------------------------
-#GP
+# GP
 summary(fitGP)
 summarise_precision_to_variance(fitGP)
-#GPH
+# GPH
 summary(fitGPH)
 summarise_precision_to_variance(fitGPH)
-#GPS
+# GPS
 summary(fitGPS)
 summarise_precision_to_variance(fitGPS)
 
 #--------------------Spatial variance-------------------------------------------
-#GP models
+# GP models
 summary(fitGPS)
 summarise_precision_to_variance(fitGPS)
-#Spatial variance
+# Spatial variance
+
 # Set the seed for reproducibility
 set.seed(123)
 fieldGPS <- generate(fitGPS,spdf, ~field, 1000)
 str(fieldGPS)
+
 # Reporting Spatial variance for our herd (locations)
 fieldGPS <- as.data.frame(fieldGPS)
 fieldGPS$herd <- data1$herd
@@ -432,6 +406,7 @@ Range_fieldGPS <- generate(fitGPS,spdf, ~Range_for_field, 1000)
 str(Range_fieldGPS)
 Range_fieldGPS_df <- data.frame(Range_fieldGPS)
 round(rowMeans(Range_fieldGPS_df),3) 
+
 # Define a function to calculate row-wise standard deviation
 row_sd <- function(data) {
   apply(data, 1, sd, na.rm = TRUE)
@@ -439,7 +414,7 @@ row_sd <- function(data) {
 sd_range_GPS <- round(row_sd(Range_fieldGPS_df),3)
 sd_range_GPS #
 
-#GPHS
+# GPHS
 summary(fitGPHS)
 summarise_precision_to_variance(fitGPHS)
 # Spatial variance
@@ -457,7 +432,7 @@ round(mean(column_variances_GPHS$spatial_var),3)
 round(sd(column_variances_GPHS$spatial_var),3)
 
 
-#Range of spatial effect fitGPHS
+# Range of spatial effect fitGPHS
 Range_fieldGPHS <- generate(fitGPHS,spdf, ~Range_for_field, 1000)
 
 Range_fieldGPHS_df <- data.frame(Range_fieldGPHS)
@@ -465,14 +440,16 @@ round(rowMeans(Range_fieldGPHS_df),3)
 sd_range_GPHS <- round(row_sd(Range_fieldGPHS_df),3)
 sd_range_GPHS
 
-#GS
+# GS
 summary(fitGS)
 summarise_precision_to_variance(fitGS)
-#Spatial variance
+# Spatial variance
+
 # Set the seed for reproducibility
 set.seed(123)
 fieldGS <- generate(fitGS,spdf, ~field, 1000)
 str(fieldGS)
+
 # Reporting Spatial variance for our herd (locations)
 fieldGS <- as.data.frame(fieldGS)
 fieldGS$herd <- data1$herd
@@ -488,6 +465,7 @@ Range_fieldGS <- generate(fitGS,spdf, ~Range_for_field, 1000)
 str(Range_fieldGS)
 Range_fieldGS_df <- data.frame(Range_fieldGS)
 round(rowMeans(Range_fieldGS_df),3) 
+
 # Define a function to calculate row-wise standard deviation
 row_sd <- function(data) {
   apply(data, 1, sd, na.rm = TRUE)
@@ -495,7 +473,7 @@ row_sd <- function(data) {
 sd_range_GS <- round(row_sd(Range_fieldGS_df),3)
 sd_range_GS 
 
-#GHS
+# GHS
 summary(fitGHS)
 summarise_precision_to_variance(fitGHS)
 # Spatial variance
@@ -512,7 +490,7 @@ colnames(column_variances_GHS)[1] <- "spatial_var"
 round(mean(column_variances_GHS$spatial_var),3) 
 round(sd(column_variances_GHS$spatial_var),3)  
 
-#Range of spatial effect fitGHS
+# Range of spatial effect fitGHS
 Range_fieldGHS <- generate(fitGHS,spdf, ~Range_for_field, 1000)
 Range_fieldGHS_df <- data.frame(Range_fieldGHS)
 round(rowMeans(Range_fieldGHS_df),3)
@@ -520,13 +498,14 @@ sd_range_GHS <- round(row_sd(Range_fieldGHS_df),3)
 sd_range_GHS
 
 # ----------------Plotting Spatial effects from GHS and GS models------
-#fitGHS
+# fitGHS
 # Load required packages
 library(ggplot2)
 library(sf)
 library(gridExtra)
 library(viridis)
-#fitGHS (Manuscript Figure 4)
+
+# fitGHS (Manuscript Figure 4)
 
 gproj <- inla.mesh.projector(mesh2,  dims = c(300,300))
 
@@ -556,8 +535,7 @@ plot_GHS <- grid.arrange(mean_plot, sd_plot, ncol=2,
 # Save the combined plot
 ggsave("Figure4_GHS.png", plot = plot_GHS, height = PaperSize, width = PaperSize * 1.5, unit = "cm")
 
-#fitGS (Manuscript Additional file 2)
-
+# fitGS (Manuscript Additional file 2)
 gproj <- inla.mesh.projector(mesh,  dims = c(300,300))
 
 g.mean <- inla.mesh.project(gproj, fitGS$summary.random$field$mean)
@@ -582,5 +560,6 @@ sd_plot <- levelplot(g.sd, scales=list(draw=F),
 plot_GS <- grid.arrange(mean_plot, sd_plot, ncol=2,
                          top = NULL, # Optionally set top title
                          padding = unit(c(0, 0, 0, 0), "cm")) # Set padding to zero
+
 # Save the combined plot
 ggsave("Supplementary_Figure_GS.png", plot = plot_GS, height = PaperSize, width = PaperSize * 1.5, unit = "cm")
